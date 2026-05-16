@@ -42,6 +42,7 @@ Développer un serveur de fichiers accessible depuis un navigateur permettant :
 | Supprimer | Supprimer fichier ou dossier |
 | Créer | Créer un dossier |
 | Renommer | Renommer fichier ou dossier |
+| Visualiser images | Afficher les photos du smartphone |
 
 ---
 
