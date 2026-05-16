@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>FileHub - Web Explorer</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        :root {
+            --bg-color: #F1F3F5;
+            --surface-color: #FCFCFC;
+
+            --text-primary: #111827;
+            --text-secondary: #4B5563;
+
+            --border-color: #DEE2E6;
+
+            --accent-color: #2D6A4F;
+            --accent-soft: #D8F3DC;
+
+            --card-shadow: 0 4px 20px rgba(0,0,0,0.04);
+        }
+
+        .dark {
+            --bg-color: #121212;
+            --surface-color: #1E1E1E;
+
+            --text-primary: #F3F4F6;
+            --text-secondary: #9CA3AF;
+
+            --border-color: #333333;
+
+            --accent-color: #40916C;
+            --accent-soft: #1B4332;
+
+            --card-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        * {
+            transition:
+                background-color 0.25s ease,
+                color 0.25s ease,
+                border-color 0.25s ease;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+        }
+
+        .sidebar {
+            background-color: var(--surface-color);
+            border-right: 1px solid var(--border-color);
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--card-shadow);
+            border-radius: 18px;
+        }
+
+        .text-primary {
+            color: var(--text-primary);
+        }
+
+        .text-secondary {
+            color: var(--text-secondary);
+        }
+
+        .sidebar-item {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border-radius: 12px;
+            color: var(--text-secondary);
+        }
+
+        .sidebar-item:hover {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+        }
+
+        .sidebar-item.active {
+            background-color: var(--accent-soft);
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        .file-item {
+            transition: all 0.15s ease;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-item:hover {
+            background-color: rgba(0,0,0,0.03);
+        }
+
+        .dark .file-item:hover {
+            background-color: rgba(255,255,255,0.03);
+        }
+
+        .text-accent {
+            color: var(--accent-color);
+        }
+
+        .bg-accent {
+            background-color: var(--accent-color);
+        }
+
+        .border-accent {
+            border-color: var(--accent-color);
+        }
+
+        .soft-bg {
+            background-color: rgba(0,0,0,0.03);
+        }
+
+        .dark .soft-bg {
+            background-color: rgba(255,255,255,0.04);
+        }
+
+        .loader {
+            border-top-color: var(--accent-color);
+            animation: spinner 0.6s linear infinite;
+        }
+
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .breadcrumb-item:not(:last-child)::after {
+            content: "›";
+            margin: 0 10px;
+            color: var(--text-secondary);
+        }
+
+        /* TOGGLE */
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background-color: #BDBDBD;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+    </style>
+</head>
+
+<body class="antialiased min-h-screen flex flex-col md:flex-row">
+
+<!-- SIDEBAR -->
+
+<aside class="sidebar w-full md:w-72 flex-shrink-0 flex flex-col p-6">
+
+    <div class="flex items-center justify-between mb-10">
+        <div class="flex items-center space-x-3">
+
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden">
+                <img src="logo.png" alt="Logo" class="w-10 h-10 object-cover">
+            </div>
+
+            <span class="text-xl font-extrabold tracking-tight text-primary">
+                    FileHub
+                </span>
+        </div>
+    </div>
+
+    <nav class="space-y-2 flex-grow">
+
+        <div id="nav-explorer"
+             class="sidebar-item active p-3 flex items-center space-x-3"
+             onclick="switchSection('explorer')">
+
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z">
+                </path>
+            </svg>
+
+            <span>File Explorer</span>
+        </div>
+
+        <div id="nav-about"
+             class="sidebar-item p-3 flex items-center space-x-3"
+             onclick="switchSection('about')">
+
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z">
+                </path>
+            </svg>
+
+            <span>About</span>
+        </div>
+
+    </nav>
+
+    <div class="mt-auto space-y-6 pt-6 border-t"
+         style="border-color: var(--border-color);">
+
+        <!-- THEME -->
+
+        <div class="flex items-center justify-between p-2">
+
+            <div class="flex items-center space-x-2 text-sm font-medium text-primary">
+
+                <svg class="w-4 h-4"
+                     fill="none"
+                     stroke="currentColor"
+                     viewBox="0 0 24 24">
+
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                    </path>
+
+                </svg>
+
+                <span>Dark Mode</span>
+            </div>
+
+            <label class="switch">
+                <input type="checkbox"
+                       id="theme-toggle"
+                       onchange="toggleTheme()">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="flex items-center space-x-2 text-xs font-semibold uppercase tracking-widest text-secondary">
+
+            <span class="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+
+            <span>Live on Network</span>
+        </div>
+
+    </div>
+
+</aside>
+
+<!-- MAIN -->
+
+<div class="flex-grow p-6 md:p-12 overflow-y-auto">
+
+    <!-- EXPLORER -->
+
+    <section id="section-explorer" class="max-w-5xl mx-auto">
+
+        <header class="mb-8">
+
+            <h2 class="text-3xl font-extrabold mb-2 text-primary">
+                Explorer
+            </h2>
+
+            <nav class="flex text-sm font-medium text-secondary"
+                 id="breadcrumb">
+            </nav>
+
+        </header>
+
+        <div class="card overflow-hidden">
+
+            <div class="grid grid-cols-12 gap-4 px-6 py-4 soft-bg border-b text-[10px] font-black uppercase tracking-widest"
+                 style="border-color: var(--border-color); color: var(--text-secondary);">
+
+                <div class="col-span-8 md:col-span-6">
+                    Name
+                </div>
+
+                <div class="hidden md:block md:col-span-3 text-right">
+                    Size
+                </div>
+
+                <div class="col-span-4 md:col-span-3 text-right">
+                    Actions
+                </div>
+
+            </div>
+
+            <div id="file-list"></div>
+
+        </div>
+
+        <div id="empty-state"
+             class="hidden py-32 text-center text-secondary">
+
+            <svg class="w-16 h-16 mx-auto mb-4"
+                 fill="none"
+                 stroke="currentColor"
+                 viewBox="0 0 24 24">
+
+                <path stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z">
+                </path>
+
+            </svg>
+
+            <h3 class="text-lg font-bold mb-1 text-primary">
+                Empty folder
+            </h3>
+
+            <p class="text-sm text-secondary">
+                No files found in this directory.
+            </p>
+
+        </div>
+
+    </section>
+
+    <!-- ABOUT -->
+
+    <section id="section-about"
+             class="hidden max-w-2xl mx-auto">
+
+        <h2 class="text-3xl font-extrabold mb-8 text-primary">
+            About
+        </h2>
+
+        <div class="card p-8 text-center">
+
+            <div class="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
+                <img src="logo.png"
+                     alt="Logo"
+                     class="w-20 h-20 object-cover">
+            </div>
+
+            <h3 class="text-2xl font-bold mb-2 text-primary">
+                FileHub v2.2
+            </h3>
+
+            <p class="text-secondary mb-8">
+                A lightweight, modern HTTP file server for Android.
+            </p>
+
+            <div class="grid grid-cols-2 gap-4 text-left">
+
+                <div class="p-4 soft-bg rounded-xl">
+
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-secondary mb-1">
+                        Architecture
+                    </p>
+
+                    <p class="text-sm font-semibold text-primary">
+                        MVVM + Compose
+                    </p>
+
+                </div>
+
+                <div class="p-4 soft-bg rounded-xl">
+
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-secondary mb-1">
+                        Engine
+                    </p>
+
+                    <p class="text-sm font-semibold text-primary">
+                        NanoHTTPD 2.3
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+</div>
+
+<!-- JS -->
+
+<script src="app.js"></script>
+
+<script>
+
+    document.addEventListener('DOMContentLoaded', () => {
+
+        if (window.loadFiles)
+            loadFiles('');
+
+        const isDark =
+            localStorage.getItem('theme') === 'dark';
+
+        document.getElementById('theme-toggle').checked = isDark;
+
+        if (isDark)
+            document.body.classList.add('dark');
+    });
+
+    function toggleTheme() {
+
+        const isDark =
+            document.getElementById('theme-toggle').checked;
+
+        if (isDark) {
+
+            document.body.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+
+        } else {
+
+            document.body.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        }
+    }
+
+    function switchSection(id) {
+
+        ['explorer', 'about'].forEach(s => {
+
+            document.getElementById('section-' + s)
+                .classList.add('hidden');
+
+            document.getElementById('nav-' + s)
+                .classList.remove('active');
+        });
+
+        document.getElementById('section-' + id)
+            .classList.remove('hidden');
+
+        document.getElementById('nav-' + id)
+            .classList.add('active');
+    }
+
+</script>
+
+</body>
+</html>

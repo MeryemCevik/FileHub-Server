@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Server - Files</title>
+    <!-- TAILWIND CSS VIA CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #F6F7F9; }
+        .card {
+            background-color: white;
+            border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .file-item:hover { background-color: #F9FAFB; }
+        .breadcrumb-item:not(:last-child)::after {
+            content: "/";
+            margin: 0 8px;
+            color: #D1D5DB;
+        }
+    </style>
+</head>
+<body class="font-sans text-gray-800 antialiased min-h-screen">
+
+    <div class="max-w-5xl mx-auto px-6 py-12">
+
+        <!-- HEADER -->
+        <header class="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-gray-900">Files</h1>
+                <nav class="flex mt-2 text-sm font-medium text-gray-500" id="breadcrumb">
+                    <span class="breadcrumb-item cursor-pointer hover:text-violet-600 transition-colors" onclick="loadFiles('')">Root</span>
+                </nav>
+            </div>
+            <a href="index.html" class="inline-flex items-center px-5 py-2.5 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-bold rounded-xl transition-all duration-200 shadow-sm">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                Dashboard
+            </a>
+        </header>
+
+        <!-- FILE EXPLORER -->
+        <main class="card border border-gray-100 overflow-hidden">
+            <!-- Header List -->
+            <div class="grid grid-cols-12 gap-4 px-6 py-4 bg-gray-50 border-b border-gray-100 text-xs font-bold uppercase tracking-wider text-gray-400">
+                <div class="col-span-8 md:col-span-6">Name</div>
+                <div class="hidden md:block md:col-span-3 text-right">Size</div>
+                <div class="col-span-4 md:col-span-3 text-right">Action</div>
+            </div>
+
+            <!-- List Body -->
+            <div id="file-list" class="divide-y divide-gray-50">
+                <!-- SKELETON LOADER -->
+                <div class="p-20 text-center">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-violet-100 border-t-violet-600 mb-4"></div>
+                    <p class="text-gray-400 font-medium">Fetching your files...</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- EMPTY STATE (HIDDEN) -->
+        <div id="empty-state" class="hidden py-20 text-center">
+            <div class="bg-gray-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">No files found</h3>
+            <p class="text-gray-500">This directory is currently empty.</p>
+        </div>
+    </div>
+
+    <!-- MAIN LOGIC -->
+    <script src="app.js"></script>
+    <script>
+        // Start loading files on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.loadFiles) loadFiles('');
+        });
+    </script>
+</body>
+</html>
