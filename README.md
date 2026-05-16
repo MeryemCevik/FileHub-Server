@@ -138,11 +138,51 @@ G --> H[Navigateur utilisateur]
 
 ## Utilisation
 
+### Mode normal (Wi-Fi)
+
 1. Lancer l’application Android
 2. Connecter le téléphone et le PC sur le même réseau Wi-Fi
 3. Récupérer l’adresse IP affichée dans l’application
 4. Ouvrir cette adresse dans un navigateur
 5. Accéder aux fichiers du téléphone
+
+### Accès en mode développement (ADB / USB)
+
+Cette méthode permet d'accéder à un serveur lancé sur un appareil Android depuis un PC via USB.
+
+#### Prérequis
+- USB debugging activé sur le téléphone
+- ADB installé (Android SDK Platform Tools)
+- Téléphone connecté en USB
+- Application en cours d’exécution sur l’appareil
+- Le serveur écoute sur le port `8080` dans l’application
+
+#### Vérifier la connexion ADB
+Dans le terminal (Android Studio ou terminal système) :
+```bash
+adb devices
+```
+Vous devez voir votre appareil listé.
+
+
+#### Redirection du port (port forwarding)
+Toujours dans le terminal :
+```bash
+adb forward tcp:8080 tcp:8080
+```
+Cette commande redirige le port `8080` du PC vers le port `8080` du téléphone.
+
+#### Accès au serveur
+Une fois la redirection active, accéder au serveur depuis le navigateur du PC :
+```
+http://127.0.0.1:8080
+```
+
+#### Notes : 
+- L’application doit être déjà lancée sur le téléphone
+- Le serveur doit écouter sur `0.0.0.0` ou `localhost` selon la configuration
+- Si le port est déjà utilisé, changer `8080` par un autre port
+- La redirection ADB est perdue si l’appareil est déconnecté
 
 ---
 
