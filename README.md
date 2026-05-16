@@ -33,12 +33,16 @@ Il permet la gestion complète des fichiers sans câble USB.
 
 ### Fonctionnalités principales
 
-- Navigation dans les fichiers
-- Téléchargement de fichiers
-- Upload de fichiers
-- Suppression de fichiers et dossiers
-- Création de dossiers
-- Renommage de fichiers et dossiers
+| Fonction | Description |
+|----------|-------------|
+| Naviguer | Parcourir l’arborescence du stockage |
+| Télécharger | Récupérer un fichier |
+| Téléverser | Envoyer un fichier vers le téléphone |
+| Éditer | Modifier un fichier texte |
+| Supprimer | Supprimer fichier ou dossier |
+| Créer | Créer un dossier |
+| Renommer | Renommer fichier ou dossier |
+| Visualiser images | Afficher les photos du smartphone |
 
 ---
 
