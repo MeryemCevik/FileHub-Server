@@ -1,7 +1,6 @@
 package com.waiphyo.androidhttpfileserver.server;
 
 import android.content.Context;
-import android.os.Environment;
 import android.util.Log;
 
 import java.io.File;
@@ -19,10 +18,12 @@ import fi.iki.elonen.NanoHTTPD;
 public class HttpServer extends NanoHTTPD {
     private static final String TAG = "HttpServer";
     private final Context mContext;
+    private final String mRootPath;
 
-    public HttpServer(Context context, int port) {
+    public HttpServer(Context context, int port, String rootPath) {
         super(port);
         this.mContext = context;
+        this.mRootPath = rootPath;
     }
 
     @Override
@@ -34,6 +35,16 @@ public class HttpServer extends NanoHTTPD {
         // 1. API: Liste des fichiers au format JSON
         if ("/api/files".equals(uri)) {
             return handleFileListApi(session);
+        }
+
+        // 1b. API: Suppression de fichier ou dossier
+        if ("/api/delete".equals(uri)) {
+            return handleDeleteApi(session);
+        }
+
+        // 1c. API: Nouveau dossier
+        if ("/api/mkdir".equals(uri)) {
+            return handleMkdirApi(session);
         }
 
         // 2. TÉLÉCHARGEMENT: Sert les fichiers réels du stockage Android
@@ -62,7 +73,7 @@ public class HttpServer extends NanoHTTPD {
         String path = session.getParameters().get("path") != null ? session.getParameters().get("path").get(0) : null;
         if (path == null) path = "";
         
-        File root = Environment.getExternalStorageDirectory();
+        File root = new File(mRootPath);
         File targetDir = path.isEmpty() ? root : new File(root, path);
 
         if (!targetDir.exists() || !targetDir.isDirectory()) {
@@ -98,11 +109,74 @@ public class HttpServer extends NanoHTTPD {
     }
 
     /**
+     * Gère la suppression d'un fichier ou d'un dossier.
+     */
+    private Response handleDeleteApi(IHTTPSession session) {
+        String path = session.getParameters().get("path") != null ? session.getParameters().get("path").get(0) : null;
+        if (path == null || path.isEmpty()) {
+            return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Chemin manquant");
+        }
+
+        File fileToDelete = new File(mRootPath, path);
+        if (!fileToDelete.exists()) {
+            return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Fichier non trouvé");
+        }
+
+        try {
+            if (deleteRecursive(fileToDelete)) {
+                return newFixedLengthResponse(Response.Status.OK, "text/plain", "Supprimé avec succès");
+            } else {
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Échec de la suppression");
+            }
+        } catch (Exception e) {
+            return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Gère la création d'un nouveau dossier.
+     */
+    private Response handleMkdirApi(IHTTPSession session) {
+        String parentPath = session.getParameters().get("parentPath") != null ? session.getParameters().get("parentPath").get(0) : null;
+        String name = session.getParameters().get("name") != null ? session.getParameters().get("name").get(0) : null;
+
+        if (parentPath == null || name == null) {
+            return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Paramètres manquants");
+        }
+
+        File newDir = new File(mRootPath, parentPath.isEmpty() ? name : parentPath + "/" + name);
+        if (newDir.exists()) {
+            return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Le dossier existe déjà");
+        }
+
+        if (newDir.mkdirs()) {
+            return newFixedLengthResponse(Response.Status.OK, "text/plain", "Dossier créé");
+        } else {
+            return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Échec de la création");
+        }
+    }
+
+    /**
+     * Supprime un fichier ou un dossier récursivement.
+     */
+    private boolean deleteRecursive(File fileOrDirectory) {
+        if (fileOrDirectory.isDirectory()) {
+            File[] children = fileOrDirectory.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    deleteRecursive(child);
+                }
+            }
+        }
+        return fileOrDirectory.delete();
+    }
+
+    /**
      * Lit un fichier depuis le disque pour le proposer au téléchargement.
      */
     private Response handleDownload(String filePath) {
         try {
-            File root = Environment.getExternalStorageDirectory();
+            File root = new File(mRootPath);
             File file = new File(root, filePath);
             
             if (file.exists() && file.isFile()) {
@@ -136,8 +210,8 @@ public class HttpServer extends NanoHTTPD {
      * Formate la taille d'un fichier en unités lisibles (Ko, Mo, Go).
      */
     private String formatSize(long size) {
-        if (size <= 0) return "0 B";
-        final String[] units = new String[]{"B", "KB", "MB", "GB", "TB"};
+        if (size <= 0) return "0 o";
+        final String[] units = new String[]{"o", "Ko", "Mo", "Go", "To"};
         int digitGroups = (int) (Math.log10(size) / Math.log10(1024));
         return new java.text.DecimalFormat("#,##0.#").format(size / Math.pow(1024, digitGroups)) + " " + units[digitGroups];
     }

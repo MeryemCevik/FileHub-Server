@@ -1,6 +1,7 @@
 package com.waiphyo.androidhttpfileserver
 
 import android.content.Context
+import android.os.Environment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.waiphyo.androidhttpfileserver.server.HttpServer
@@ -23,6 +24,10 @@ class MainViewModel : ViewModel() {
     // Port réseau utilisé par le serveur (8080 par défaut)
     private val _port = MutableStateFlow(8080)
     val port = _port.asStateFlow()
+
+    // Chemin du dossier partagé (par défaut racine du stockage)
+    private val _sharedPath = MutableStateFlow(Environment.getExternalStorageDirectory().absolutePath)
+    val sharedPath = _sharedPath.asStateFlow()
 
     // État du mode sombre (activé / désactivé)
     private val _isDarkMode = MutableStateFlow(false)
@@ -54,13 +59,30 @@ class MainViewModel : ViewModel() {
     }
 
     /**
+     * Met à jour le dossier à partager.
+     */
+    fun updateSharedPath(path: String) {
+        viewModelScope.launch {
+            _sharedPath.value = path
+        }
+    }
+
+    /**
+     * Bascule sur le dossier Téléchargements par défaut.
+     */
+    fun useDownloadsFolder() {
+        val downloadsPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath
+        updateSharedPath(downloadsPath)
+    }
+
+    /**
      * Démarre l'instance du serveur HTTP.
      * @param context Nécessaire pour accéder aux assets et fichiers du système.
      */
     fun startServer(context: Context) {
         if (_serverState.value) return
         try {
-            httpServer = HttpServer(context, port.value).apply {
+            httpServer = HttpServer(context, port.value, sharedPath.value).apply {
                 start()
             }
             updateServerState(true)
