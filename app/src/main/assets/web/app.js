@@ -4,7 +4,8 @@ const CONFIG = {
         download: '/download/',
         delete: '/api/delete',
         mkdir: '/api/mkdir',
-        config: '/api/config'
+        config: '/api/config',
+        upload: '/api/upload'
     }
 };
 
@@ -264,6 +265,39 @@ async function createNewFolder() {
         if (res.ok) loadFiles(currentPath, false);
         else alert("Erreur lors de la création du dossier");
     } catch (e) { alert("Erreur de connexion"); }
+}
+
+async function handleFileUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const uploadUrl = `${CONFIG.endpoints.upload}?path=${encodeURIComponent(currentPath)}&fileName=${encodeURIComponent(file.name)}`;
+
+    // Affichage de l'overlay de blocage
+    const overlay = document.getElementById('upload-overlay');
+    overlay.classList.remove('hidden');
+
+    try {
+        const res = await fetch(uploadUrl, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (res.ok) {
+            loadFiles(currentPath, false);
+        } else {
+            alert("Erreur lors de l'envoi du fichier");
+        }
+    } catch (e) {
+        alert("Erreur réseau lors de l'envoi");
+    } finally {
+        // Masquage de l'overlay
+        overlay.classList.add('hidden');
+        input.value = '';
+    }
 }
 
 function updateBreadcrumb(path) {

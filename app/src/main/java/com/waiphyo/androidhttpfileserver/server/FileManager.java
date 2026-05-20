@@ -1,11 +1,15 @@
 package com.waiphyo.androidhttpfileserver.server;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Arrays;
 
 /**
  * Gère toutes les opérations sur le système de fichiers.
- * Cette classe sépare la logique métier de la logique réseau du serveur.
  */
 public class FileManager {
     private final String rootPath;
@@ -14,28 +18,18 @@ public class FileManager {
         this.rootPath = rootPath;
     }
 
-    /**
-     * Retourne le nom du dossier racine partagé.
-     */
     public String getRootName() {
         File root = new File(rootPath);
         String name = root.getName();
-        // Si c'est la racine du téléphone, on l'appelle "Racine"
         if (name.isEmpty() || rootPath.equals("/storage/emulated/0") || rootPath.equals("/")) {
             return "Racine";
         }
         return name;
     }
 
-    /**
-     * Retourne la liste des fichiers d'un dossier au format JSON.
-     */
     public String getFileListJson(String relativePath) {
         File targetDir = new File(rootPath, relativePath);
-
-        if (!targetDir.exists() || !targetDir.isDirectory()) {
-            return "[]";
-        }
+        if (!targetDir.exists() || !targetDir.isDirectory()) return "[]";
 
         File[] files = targetDir.listFiles();
         StringBuilder json = new StringBuilder("[");
@@ -64,9 +58,57 @@ public class FileManager {
         return json.toString();
     }
 
-    /**
-     * Supprime un fichier ou un dossier (récursivement).
-     */
+    public boolean saveFile(String targetRelativePath, String fileName, File tempFile) {
+        try {
+            File targetDir = new File(rootPath, targetRelativePath);
+            if (!targetDir.exists() && !targetDir.mkdirs()) return false;
+
+            File dest = new File(targetDir, fileName);
+            
+            // Gestion des doublons
+            if (dest.exists()) {
+                String baseName = fileName;
+                String extension = "";
+                int dotIndex = fileName.lastIndexOf('.');
+                if (dotIndex > 0) {
+                    baseName = fileName.substring(0, dotIndex);
+                    extension = fileName.substring(dotIndex);
+                }
+                int count = 1;
+                while (dest.exists()) {
+                    dest = new File(targetDir, baseName + "_" + count + extension);
+                    count++;
+                }
+            }
+
+            // Tentative de déplacement rapide
+            if (tempFile.renameTo(dest)) {
+                return true;
+            } else {
+                // Secours : Copie manuelle (nécessaire si on change de partition mémoire)
+                return copyFile(tempFile, dest);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private boolean copyFile(File src, File dst) {
+        try (InputStream in = new FileInputStream(src);
+             OutputStream out = new FileOutputStream(dst)) {
+            byte[] buf = new byte[8192];
+            int len;
+            while ((len = in.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
+            return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     public boolean deleteItem(String relativePath) {
         File file = new File(rootPath, relativePath);
         if (!file.exists()) return false;
@@ -77,34 +119,22 @@ public class FileManager {
         if (fileOrDirectory.isDirectory()) {
             File[] children = fileOrDirectory.listFiles();
             if (children != null) {
-                for (File child : children) {
-                    deleteRecursive(child);
-                }
+                for (File child : children) deleteRecursive(child);
             }
         }
         return fileOrDirectory.delete();
     }
 
-    /**
-     * Crée un nouveau dossier.
-     */
     public boolean makeDirectory(String parentPath, String folderName) {
         File newDir = new File(rootPath, parentPath.isEmpty() ? folderName : parentPath + "/" + folderName);
-        if (newDir.exists()) return false;
-        return newDir.mkdirs();
+        return !newDir.exists() && newDir.mkdirs();
     }
 
-    /**
-     * Retourne l'objet File pour le téléchargement.
-     */
     public File getFile(String relativePath) {
         File file = new File(rootPath, relativePath);
         return (file.exists() && file.isFile()) ? file : null;
     }
 
-    /**
-     * Formate la taille en unités lisibles.
-     */
     public String formatSize(long size) {
         if (size <= 0) return "0 o";
         final String[] units = new String[]{"o", "Ko", "Mo", "Go", "To"};

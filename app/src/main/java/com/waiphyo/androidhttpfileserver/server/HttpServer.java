@@ -7,6 +7,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 import fi.iki.elonen.NanoHTTPD;
 
@@ -57,6 +59,30 @@ public class HttpServer extends NanoHTTPD {
                 return newFixedLengthResponse(Response.Status.OK, "text/plain", "OK");
             }
             return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur");
+        }
+
+        if ("/api/upload".equals(uri) && method == Method.POST) {
+            Map<String, String> files = new HashMap<>();
+            try {
+                session.parseBody(files);
+                String path = session.getParameters().get("path") != null ? session.getParameters().get("path").get(0) : "";
+                
+                // Dans NanoHTTPD, "file" est le nom du champ dans le formulaire HTML
+                if (files.containsKey("file")) {
+                    String tempFilePath = files.get("file");
+                    String fileName = session.getParameters().get("fileName") != null 
+                        ? session.getParameters().get("fileName").get(0) 
+                        : "uploaded_file";
+
+                    File tempFile = new File(tempFilePath);
+                    if (fileManager.saveFile(path, fileName, tempFile)) {
+                        return newFixedLengthResponse(Response.Status.OK, "text/plain", "OK");
+                    }
+                }
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur sauvegarde");
+            } catch (Exception e) {
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur: " + e.getMessage());
+            }
         }
 
         // TÉLÉCHARGEMENT
