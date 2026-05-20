@@ -243,7 +243,8 @@ fun MainApp(
                                 modifier = Modifier.fillMaxWidth().height(64.dp),
                                 shape = RoundedCornerShape(20.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (serverState) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                    containerColor = if (serverState) Color(0xFFD32F2F) else MaterialTheme.colorScheme.primary,
+                                    contentColor = if (serverState) Color.White else MaterialTheme.colorScheme.onPrimary
                                 )
                             ) {
                                 Icon(if (serverState) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null)

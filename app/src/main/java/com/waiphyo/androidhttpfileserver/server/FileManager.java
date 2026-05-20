@@ -15,6 +15,19 @@ public class FileManager {
     }
 
     /**
+     * Retourne le nom du dossier racine partagé.
+     */
+    public String getRootName() {
+        File root = new File(rootPath);
+        String name = root.getName();
+        // Si c'est la racine du téléphone, on l'appelle "Racine"
+        if (name.isEmpty() || rootPath.equals("/storage/emulated/0") || rootPath.equals("/")) {
+            return "Racine";
+        }
+        return name;
+    }
+
+    /**
      * Retourne la liste des fichiers d'un dossier au format JSON.
      */
     public String getFileListJson(String relativePath) {

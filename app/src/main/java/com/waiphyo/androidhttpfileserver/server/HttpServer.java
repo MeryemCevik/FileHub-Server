@@ -32,6 +32,11 @@ public class HttpServer extends NanoHTTPD {
         Log.d(TAG, "Requête: " + method + " " + uri);
 
         // ROUTAGE API
+        if ("/api/config".equals(uri)) {
+            return newFixedLengthResponse(Response.Status.OK, "application/json", 
+                "{\"rootName\":\"" + fileManager.getRootName() + "\"}");
+        }
+
         if ("/api/files".equals(uri)) {
             String path = session.getParameters().get("path") != null ? session.getParameters().get("path").get(0) : "";
             return newFixedLengthResponse(Response.Status.OK, "application/json", fileManager.getFileListJson(path));

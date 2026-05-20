@@ -3,18 +3,47 @@ const CONFIG = {
         files: '/api/files',
         download: '/download/',
         delete: '/api/delete',
-        mkdir: '/api/mkdir'
+        mkdir: '/api/mkdir',
+        config: '/api/config'
     }
 };
 
 let currentPath = '';
 let selectedPaths = new Set();
 let allFilesCount = 0;
+let rootName = 'Racine';
 
-async function loadFiles(path) {
+/**
+ * Initialise l'application (charge la config)
+ */
+async function initApp() {
+    try {
+        const res = await fetch(CONFIG.endpoints.config);
+        const data = await res.json();
+        rootName = data.rootName || 'Racine';
+    } catch (e) {
+        console.error("Erreur chargement config", e);
+    }
+    loadFiles('', true);
+}
+
+// L'initialisation est maintenant gérée par initApp() au lieu de loadFiles('') direct
+window.onload = initApp;
+
+/**
+ * Gère le chargement des fichiers et l'historique du navigateur.
+ * @param {string} path Chemin à charger
+ * @param {boolean} pushState Si true, ajoute une entrée dans l'historique (bouton retour)
+ */
+async function loadFiles(path, pushState = true) {
     currentPath = path;
     selectedPaths.clear();
     updateToolbarState();
+
+    // Gestion de l'historique pour le bouton "Retour" du téléphone
+    if (pushState) {
+        history.pushState({ path: path }, "", "");
+    }
 
     const fileListEl = document.getElementById('file-list');
     const emptyStateEl = document.getElementById('empty-state');
@@ -48,6 +77,19 @@ async function loadFiles(path) {
     }
 }
 
+/**
+ * Écoute le bouton "Retour" du navigateur/téléphone.
+ */
+window.onpopstate = function(event) {
+    if (event.state && event.state.path !== undefined) {
+        // On recharge le dossier précédent sans rajouter une étape d'historique (pushState=false)
+        loadFiles(event.state.path, false);
+    } else {
+        // Retour à la racine si pas d'état
+        loadFiles('', false);
+    }
+};
+
 function renderFileList(files) {
     const fileListEl = document.getElementById('file-list');
     const emptyStateEl = document.getElementById('empty-state');
@@ -60,7 +102,13 @@ function renderFileList(files) {
 
     emptyStateEl.classList.add('hidden');
 
-    fileListEl.innerHTML = files.map(file => `
+    fileListEl.innerHTML = files.map(file => {
+        const icon = getFileIcon(file);
+        const iconClass = file.isDir
+            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+            : getIconBgClass(file.name);
+
+        return `
         <div class="grid grid-cols-12 gap-4 px-6 py-4 items-center file-item group"
              onclick="handleItemClick(event, '${file.isDir}', '${file.path.replace(/'/g, "\\'")}')">
 
@@ -75,35 +123,76 @@ function renderFileList(files) {
             <!-- ICON + NAME -->
             <div class="col-span-7 md:col-span-5 flex items-center">
 
-                <div class="p-2.5 rounded-xl mr-4
-                    ${file.isDir
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                        : 'soft-bg text-secondary'}">
-
-                    ${file.isDir ? '📁' : '📄'}
+                <div class="p-2.5 rounded-xl mr-4 ${iconClass}">
+                    ${icon}
                 </div>
 
                 <div class="truncate">
-                    <p class="font-bold text-primary group-hover:text-accent">
-                        ${file.name}
-                    </p>
-                    <p class="md:hidden text-xs text-secondary uppercase">
-                        ${file.isDir ? 'Dossier' : file.size}
-                    </p>
+                    <p class="font-bold text-primary group-hover:text-accent">${file.name}</p>
+                    <p class="md:hidden text-xs text-secondary uppercase">${file.isDir ? 'Dossier' : file.size}</p>
                 </div>
             </div>
 
             <!-- SIZE -->
-            <div class="hidden md:block md:col-span-3 text-right text-sm text-secondary font-medium">
-                ${file.isDir ? 'Dossier' : file.size}
-            </div>
+            <div class="hidden md:block md:col-span-3 text-right text-sm text-secondary font-medium">${file.isDir ? 'Dossier' : file.size}</div>
 
             <!-- ACTION -->
-            <div class="col-span-4 md:col-span-3 text-right text-gray-300 group-hover:text-accent">
-                →
-            </div>
+            <div class="col-span-4 md:col-span-3 text-right text-gray-300 group-hover:text-accent">→</div>
         </div>
-    `).join('');
+    `}).join('');
+}
+
+/**
+ * Retourne l'icône appropriée selon l'extension.
+ */
+function getFileIcon(file) {
+    if (file.isDir) return '📁';
+
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    const icons = {
+        // Images
+        'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️', 'webp': '🖼️', 'svg': '🖼️',
+        // Vidéos
+        'mp4': '🎬', 'mkv': '🎬', 'mov': '🎬', 'avi': '🎬',
+        // Audio
+        'mp3': '🎵', 'wav': '🎵', 'flac': '🎵', 'ogg': '🎵',
+        // Documents
+        'pdf': '📕',
+        'doc': '📄', 'docx': '📄', 'txt': '📝', 'md': '📝',
+        // Archives
+        'zip': '📦', 'rar': '📦', '7z': '📦', 'tar': '📦', 'gz': '📦',
+        // Code
+        'html': '💻', 'css': '💻', 'js': '💻', 'json': '💻', 'java': '💻', 'kt': '💻', 'py': '💻',
+        // APK
+        'apk': '🤖'
+    };
+
+    return icons[ext] || '📄';
+}
+
+/**
+ * Retourne une couleur de fond différente selon le type de fichier.
+ */
+function getIconBgClass(fileName) {
+    const ext = fileName.split('.').pop().toLowerCase();
+
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext))
+        return 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400';
+
+    if (['mp4', 'mkv', 'mov', 'avi'].includes(ext))
+        return 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400';
+
+    if (['pdf'].includes(ext))
+        return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400';
+
+    if (['zip', 'rar', '7z'].includes(ext))
+        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
+
+    if (['apk'].includes(ext))
+        return 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400';
+
+    return 'soft-bg text-secondary';
 }
 
 function handleItemClick(event, isDir, path) {
@@ -116,39 +205,36 @@ function handleItemClick(event, isDir, path) {
 
 function toggleItemSelection(checkbox) {
     const path = checkbox.getAttribute('data-path');
-    if (checkbox.checked) {
-        selectedPaths.add(path);
-    } else {
-        selectedPaths.delete(path);
-    }
+    if (checkbox.checked) selectedPaths.add(path);
+    else selectedPaths.delete(path);
     updateToolbarState();
 }
 
 function toggleSelectAll() {
-    const btn = document.getElementById('btn-select-all');
     const checkboxes = document.querySelectorAll('.item-checkbox');
-
-    // Si tout est déjà sélectionné, on désélectionne tout
     const shouldSelectAll = selectedPaths.size < allFilesCount;
 
     selectedPaths.clear();
     checkboxes.forEach(cb => {
         cb.checked = shouldSelectAll;
-        if (shouldSelectAll) {
-            selectedPaths.add(cb.getAttribute('data-path'));
-        }
+        if (shouldSelectAll) selectedPaths.add(cb.getAttribute('data-path'));
     });
-
     updateToolbarState();
 }
 
 function updateToolbarState() {
-    // Texte du bouton Tout sélectionner
     const selectBtnText = document.querySelector('#btn-select-all span');
     if (allFilesCount > 0 && selectedPaths.size === allFilesCount) {
         selectBtnText.textContent = "Tout désélectionner";
     } else {
         selectBtnText.textContent = "Tout sélectionner";
+    }
+
+    const deleteBtn = document.getElementById('bulk-delete');
+    if (deleteBtn) {
+        // Le bouton reste visible selon ta demande précédente,
+        // mais on peut ajuster son opacité s'il n'y a rien à supprimer.
+        deleteBtn.style.opacity = selectedPaths.size > 0 ? "1" : "0.5";
     }
 }
 
@@ -159,23 +245,14 @@ async function deleteSelected() {
         return;
     }
 
-    const message = count === 1
-        ? "Voulez-vous vraiment supprimer cet élément ?"
-        : `Voulez-vous vraiment supprimer ces ${count} éléments ?`;
-
-    if (!confirm(message)) return;
+    if (!confirm(`Voulez-vous vraiment supprimer ces ${count} éléments ?`)) return;
 
     for (const path of selectedPaths) {
         try {
-            await fetch(`${CONFIG.endpoints.delete}?path=${encodeURIComponent(path)}`, {
-                method: 'POST'
-            });
-        } catch (e) {
-            console.error("Erreur lors de la suppression", e);
-        }
+            await fetch(`${CONFIG.endpoints.delete}?path=${encodeURIComponent(path)}`, { method: 'POST' });
+        } catch (e) { console.error("Erreur suppression", e); }
     }
-
-    loadFiles(currentPath);
+    loadFiles(currentPath, false);
 }
 
 async function createNewFolder() {
@@ -183,40 +260,26 @@ async function createNewFolder() {
     if (!name) return;
 
     try {
-        const res = await fetch(`${CONFIG.endpoints.mkdir}?parentPath=${encodeURIComponent(currentPath)}&name=${encodeURIComponent(name)}`, {
-            method: 'POST'
-        });
-        if (res.ok) {
-            loadFiles(currentPath);
-        } else {
-            alert("Erreur lors de la création du dossier");
-        }
-    } catch (e) {
-        alert("Erreur de connexion");
-    }
+        const res = await fetch(`${CONFIG.endpoints.mkdir}?parentPath=${encodeURIComponent(currentPath)}&name=${encodeURIComponent(name)}`, { method: 'POST' });
+        if (res.ok) loadFiles(currentPath, false);
+        else alert("Erreur lors de la création du dossier");
+    } catch (e) { alert("Erreur de connexion"); }
 }
 
 function updateBreadcrumb(path) {
     const el = document.getElementById('breadcrumb');
+    const titleEl = document.querySelector('#section-explorer h2');
     const parts = path.split('/').filter(Boolean);
 
-    let html = `
-        <span class="text-secondary cursor-pointer hover:text-accent" onclick="loadFiles('')">Racine</span>
-    `;
+    // Le titre reste toujours "Explorateur"
+    titleEl.textContent = "Explorateur";
 
+    let html = `<span class="text-secondary cursor-pointer hover:text-accent" onclick="loadFiles('')">${rootName}</span>`;
     let acc = '';
-
     parts.forEach(p => {
         acc += (acc ? '/' : '') + p;
-
-        html += `
-            <span class="mx-2 text-gray-400">›</span>
-            <span class="text-secondary cursor-pointer hover:text-accent" onclick="loadFiles('${acc.replace(/'/g, "\\'")}')">
-                ${p}
-            </span>
-        `;
+        html += `<span class="mx-2 text-gray-400">›</span><span class="text-secondary cursor-pointer hover:text-accent" onclick="loadFiles('${acc.replace(/'/g, "\\'")}')">${p}</span>`;
     });
-
     el.innerHTML = html;
 }
 
