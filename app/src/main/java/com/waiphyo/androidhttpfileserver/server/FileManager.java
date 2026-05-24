@@ -60,8 +60,19 @@ public class FileManager {
 
     public boolean saveFile(String targetRelativePath, String fileName, File tempFile) {
         try {
+            // 1. Validation du nom de fichier
+            if (fileName == null || fileName.trim().isEmpty() || fileName.contains("/") || fileName.contains("\\")) {
+                return false;
+            }
+
             File targetDir = new File(rootPath, targetRelativePath);
             if (!targetDir.exists() && !targetDir.mkdirs()) return false;
+
+            // 2. Vérification de l'espace disque disponible
+            long requiredSpace = tempFile.length();
+            if (targetDir.getFreeSpace() < requiredSpace) {
+                return false; // Pas assez d'espace
+            }
 
             File dest = new File(targetDir, fileName);
             

@@ -98,10 +98,11 @@ public class HttpServer extends NanoHTTPD {
                     if (fileManager.saveFile(path, fileName, tempFile)) {
                         Log.d(TAG, "Upload réussi !");
                         return newFixedLengthResponse(Response.Status.OK, "text/plain", "OK");
+                    } else {
+                        return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Échec de la sauvegarde (Espace insuffisant, nom invalide ou erreur système)");
                     }
                 }
-                Log.e(TAG, "Échec de la sauvegarde du fichier");
-                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Échec sauvegarde");
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Aucun fichier reçu");
             }
 
             // TÉLÉCHARGEMENT

@@ -14,6 +14,8 @@ let selectedPaths = new Set();
 let allFilesCount = 0;
 let rootName = 'Racine';
 let currentUploadXHR = null;
+let uploadQueue = [];
+let isUploading = false;
 
 /**
  * Initialise l'application
@@ -27,6 +29,7 @@ async function initApp() {
         console.error("Erreur config", e);
     }
     loadFiles('', true);
+    setupDragAndDrop();
 }
 
 window.onload = initApp;
@@ -160,7 +163,9 @@ async function deleteSelected() {
     if (!confirm(`Supprimer ${count} éléments ?`)) return;
 
     for (const path of selectedPaths) {
-        await fetch(`${CONFIG.endpoints.delete}?path=${encodeURIComponent(path)}`, { method: 'POST' });
+        try {
+            await fetch(`${CONFIG.endpoints.delete}?path=${encodeURIComponent(path)}`, { method: 'POST' });
+        } catch (e) { console.error("Erreur suppression", e); }
     }
     loadFiles(currentPath, false);
 }
@@ -174,22 +179,79 @@ async function createNewFolder() {
 }
 
 /**
- * GESTION DE L'UPLOAD AVEC BARRE DE PROGRESSION
+ * CONFIGURATION DU DRAG & DROP
+ */
+function setupDragAndDrop() {
+    const dropZone = document.getElementById('drop-zone');
+
+    window.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('hidden');
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('hidden');
+    });
+
+    window.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+
+    window.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('hidden');
+
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) {
+            handleMultipleFileUploads(files);
+        }
+    });
+}
+
+/**
+ * GÈRE L'UPLOAD DE PLUSIEURS FICHIERS
+ */
+function handleMultipleFileUploads(files) {
+    uploadQueue = [...files];
+    const totalFiles = uploadQueue.length;
+    processNextInQueue(0, totalFiles);
+}
+
+/**
+ * Gère l'envoi via l'input file classique
  */
 function handleFileUpload(input) {
-    const file = input.files[0];
-    if (!file) return;
+    const files = Array.from(input.files);
+    if (files.length > 0) {
+        handleMultipleFileUploads(files);
+    }
+    input.value = ''; // Reset
+}
 
+async function processNextInQueue(currentIndex, totalFiles) {
+    if (uploadQueue.length === 0) {
+        isUploading = false;
+        document.getElementById('upload-overlay').classList.add('hidden');
+        loadFiles(currentPath, false);
+        return;
+    }
+
+    isUploading = true;
+    const file = uploadQueue.shift();
     const overlay = document.getElementById('upload-overlay');
     const progressBar = document.getElementById('upload-progress-bar');
     const percentageText = document.getElementById('upload-percentage');
     const filenameText = document.getElementById('upload-filename');
+    const countText = document.getElementById('upload-count');
     const cancelBtn = document.getElementById('cancel-upload');
 
-    // Reset UI
+    // UI Update
     filenameText.textContent = file.name;
     progressBar.style.width = '0%';
     percentageText.textContent = '0%';
+    countText.textContent = `Fichier ${currentIndex + 1} sur ${totalFiles}`;
+    countText.classList.remove('hidden');
     overlay.classList.remove('hidden');
 
     const formData = new FormData();
@@ -198,12 +260,10 @@ function handleFileUpload(input) {
     const xhr = new XMLHttpRequest();
     currentUploadXHR = xhr;
 
-    // URL d'upload
     const url = `${CONFIG.endpoints.upload}?path=${encodeURIComponent(currentPath)}&fileName=${encodeURIComponent(file.name)}`;
 
     xhr.open('POST', url, true);
 
-    // Suivi de la progression
     xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
             const percent = Math.round((e.loaded / e.total) * 100);
@@ -213,26 +273,29 @@ function handleFileUpload(input) {
     };
 
     xhr.onload = () => {
-        overlay.classList.add('hidden');
         if (xhr.status === 200) {
-            loadFiles(currentPath, false);
+            processNextInQueue(currentIndex + 1, totalFiles);
         } else {
-            alert("Erreur lors de l'envoi : " + xhr.responseText);
+            overlay.classList.add('hidden');
+            alert(`Erreur lors de l'envoi de ${file.name}: ${xhr.responseText}`);
+            isUploading = false;
         }
     };
 
     xhr.onerror = () => {
         overlay.classList.add('hidden');
         alert("Erreur réseau ou serveur inaccessible.");
+        isUploading = false;
     };
 
     cancelBtn.onclick = () => {
         xhr.abort();
+        uploadQueue = [];
+        isUploading = false;
         overlay.classList.add('hidden');
     };
 
     xhr.send(formData);
-    input.value = ''; // Reset input
 }
 
 function updateBreadcrumb(path) {
