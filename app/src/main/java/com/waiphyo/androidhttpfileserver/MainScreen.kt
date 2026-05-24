@@ -25,7 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.waiphyo.androidhttpfileserver.ui.theme.FileHubTheme
-import com.waiphyo.androidhttpfileserver.R
 
 /**
  * Interface principale de l'application Android (Panneau de contrôle).
@@ -237,7 +236,7 @@ fun MainApp(
                             // Bouton Démarrer / Arrêter
                             Button(
                                 onClick = { 
-                                    if (serverState) viewModel.stopServer()
+                                    if (serverState) viewModel.stopServer(context)
                                     else viewModel.startServer(context)
                                 },
                                 modifier = Modifier.fillMaxWidth().height(64.dp),
