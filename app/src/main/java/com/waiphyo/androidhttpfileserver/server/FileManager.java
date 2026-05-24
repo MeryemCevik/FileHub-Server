@@ -7,6 +7,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Gère toutes les opérations sur le système de fichiers.
@@ -16,6 +19,51 @@ public class FileManager {
 
     public FileManager(String rootPath) {
         this.rootPath = rootPath;
+    }
+
+    /**
+     * Compresse les fichiers et dossiers sélectionnés dans un ZipOutputStream.
+     * Les éléments sélectionnés seront à la racine de l'archive ZIP.
+     */
+    public void createZip(List<String> relativePaths, ZipOutputStream zos) throws IOException {
+        for (String path : relativePaths) {
+            File file = new File(rootPath, path);
+            if (file.exists()) {
+                // On commence le nom de l'entrée ZIP par le nom du fichier/dossier lui-même
+                // et non par son chemin complet depuis la racine.
+                addToZip(file, file.getName(), zos);
+            }
+        }
+    }
+
+    private void addToZip(File file, String zipEntryName, ZipOutputStream zos) throws IOException {
+        if (file.isDirectory()) {
+            // Toujours créer l'entrée pour le dossier (finit par un slash)
+            // C'est indispensable pour que le dossier existe dans le ZIP même s'il est vide
+            ZipEntry dirEntry = new ZipEntry(zipEntryName + "/");
+            zos.putNextEntry(dirEntry);
+            zos.closeEntry();
+
+            File[] children = file.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    // Appel récursif pour les enfants
+                    addToZip(child, zipEntryName + "/" + child.getName(), zos);
+                }
+            }
+        } else {
+            // C'est un fichier
+            try (FileInputStream fis = new FileInputStream(file)) {
+                ZipEntry zipEntry = new ZipEntry(zipEntryName);
+                zos.putNextEntry(zipEntry);
+                byte[] buffer = new byte[8192];
+                int length;
+                while ((length = fis.read(buffer)) >= 0) {
+                    zos.write(buffer, 0, length);
+                }
+                zos.closeEntry();
+            }
+        }
     }
 
     public String getRootName() {

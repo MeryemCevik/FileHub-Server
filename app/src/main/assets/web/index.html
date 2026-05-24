@@ -193,9 +193,18 @@
                 <!-- BOUTON SUPPRIMER -->
                 <button id="bulk-delete" onclick="deleteSelected()"
                         title="Supprimer la sélection"
-                        class="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all shadow-sm">
+                        class="hidden p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all shadow-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </button>
+
+                <!-- BOUTON TÉLÉCHARGER ZIP -->
+                <button id="bulk-download" onclick="downloadSelectedAsZip()"
+                        title="Télécharger la sélection (ZIP)"
+                        class="hidden p-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-all shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
                 </button>
             </div>

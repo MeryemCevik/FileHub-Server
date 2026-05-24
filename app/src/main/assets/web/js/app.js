@@ -4,91 +4,52 @@
 const CONFIG = {
     endpoints: {
         files: '/api/files',     // Liste des fichiers
-        download: '/download/',  // Téléchargement
+        download: '/download/',  // Téléchargement direct
         delete: '/api/delete',   // Suppression
         mkdir: '/api/mkdir',     // Création de dossier
-        config: '/api/config',   // Informations serveur (nom racine)
-        upload: '/api/upload'    // Envoi de fichiers
+        config: '/api/config',   // Informations serveur
+        upload: '/api/upload',   // Envoi de fichiers
+        zip: '/api/zip'          // Téléchargement groupé (ZIP)
     }
 };
 
-let currentPath = '';            // Dossier actuel
-let selectedPaths = new Set();   // Liste des fichiers cochés
-let allFilesCount = 0;           // Nombre total de fichiers dans le dossier actuel
-let rootName = 'Racine';         // Nom du point de départ (dynamique)
-let currentUploadXHR = null;     // Requête d'upload en cours (pour annulation)
-let uploadQueue = [];            // File d'attente pour l'upload multiple
-let isUploading = false;         // État du transfert
+let currentPath = '';
+let selectedPaths = new Set();   // Persiste désormais entre les dossiers
+let allFilesCount = 0;
+let rootName = 'Racine';
+let currentUploadXHR = null;
+let uploadQueue = [];
+let isUploading = false;
 
 /**
- * INITIALISATION DE L'APPLICATION
- * Appelé au chargement de la page.
+ * INITIALISATION
  */
 async function initApp() {
-    // 1. Gestion du thème (Sombre/Clair)
     const isDark = localStorage.getItem('theme') === 'dark';
     document.getElementById('theme-toggle').checked = isDark;
     if (isDark) document.body.classList.add('dark');
 
-    // 2. Récupération de la configuration du serveur
     try {
         const res = await fetch(CONFIG.endpoints.config);
         const data = await res.json();
         rootName = data.rootName || 'Racine';
-    } catch (e) {
-        console.error("Erreur chargement config", e);
-    }
+    } catch (e) { console.error("Erreur config", e); }
 
-    // 3. Premier chargement des fichiers
     loadFiles('', true);
-
-    // 4. Activation du Drag & Drop
     setupDragAndDrop();
 }
 
-// Lancement automatique au chargement du script
 window.onload = initApp;
 
 /**
- * GESTION DU THÈME
- */
-function toggleTheme() {
-    const isDark = document.getElementById('theme-toggle').checked;
-    if (isDark) {
-        document.body.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-    } else {
-        document.body.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
-    }
-}
-
-/**
- * NAVIGATION ENTRE SECTIONS (Explorateur / À propos)
- */
-function switchSection(id) {
-    ['explorer', 'about'].forEach(s => {
-        document.getElementById('section-' + s).classList.add('hidden');
-        document.getElementById('nav-' + s).classList.remove('active');
-    });
-    document.getElementById('section-' + id).classList.remove('hidden');
-    document.getElementById('nav-' + id).classList.add('active');
-}
-
-/**
  * CHARGEMENT DES FICHIERS
- * @param {string} path Chemin relatif à charger
- * @param {boolean} pushState Si true, ajoute une étape dans l'historique (bouton retour)
  */
 async function loadFiles(path, pushState = true) {
     currentPath = path;
-    selectedPaths.clear();
+    // selectedPaths.clear(); // SUPPRIMÉ : On ne vide plus la sélection en changeant de dossier !
     updateToolbarState();
 
-    // Mise à jour de l'historique du navigateur (pour le bouton retour du téléphone)
-    if (pushState) {
-        history.pushState({ path: path }, "", "");
-    }
+    if (pushState) history.pushState({ path: path }, "", "");
 
     const fileListEl = document.getElementById('file-list');
     const emptyStateEl = document.getElementById('empty-state');
@@ -102,34 +63,16 @@ async function loadFiles(path, pushState = true) {
 
     try {
         const res = await fetch(`${CONFIG.endpoints.files}?path=${encodeURIComponent(path)}`);
-        if (!res.ok) throw new Error("Erreur serveur");
         const files = await res.json();
-
         allFilesCount = files.length;
         renderFileList(files);
         updateBreadcrumb(path);
-
     } catch (e) {
-        fileListEl.innerHTML = `
-            <div class="py-20 text-center">
-                <h3 class="text-lg font-bold text-red-500 mb-1">Erreur de connexion</h3>
-                <p class="text-sm text-secondary">Le serveur ne répond pas</p>
-                <button onclick="loadFiles('${path}')" class="mt-6 px-6 py-2 bg-accent text-white rounded-xl">Réessayer</button>
-            </div>
-        `;
+        fileListEl.innerHTML = `<div class="py-20 text-center text-red-500 font-bold">Erreur de connexion</div>`;
     }
 }
 
-/**
- * ÉCOUTE DU BOUTON RETOUR PHYSIQUE
- */
-window.onpopstate = function(event) {
-    if (event.state && event.state.path !== undefined) {
-        loadFiles(event.state.path, false);
-    } else {
-        loadFiles('', false);
-    }
-};
+window.onpopstate = (e) => { if (e.state) loadFiles(e.state.path, false); };
 
 /**
  * AFFICHAGE DE LA LISTE
@@ -149,6 +92,8 @@ function renderFileList(files) {
     fileListEl.innerHTML = files.map(file => {
         const icon = getFileIcon(file);
         const iconClass = file.isDir ? 'bg-green-100 text-green-700' : getIconBgClass(file.name);
+        // Vérifie si le fichier est déjà dans notre sélection globale
+        const isChecked = selectedPaths.has(file.path);
 
         return `
         <div class="grid grid-cols-12 gap-4 px-6 py-4 items-center file-item group"
@@ -156,7 +101,9 @@ function renderFileList(files) {
 
             <div class="col-span-1 flex items-center" onclick="event.stopPropagation()">
                 <input type="checkbox" class="item-checkbox w-4 h-4 rounded border-gray-300 text-accent focus:ring-accent"
-                       data-path="${file.path.replace(/'/g, "\\'")}" onchange="toggleItemSelection(this)">
+                       data-path="${file.path.replace(/'/g, "\\'")}"
+                       ${isChecked ? 'checked' : ''}
+                       onchange="toggleItemSelection(this)">
             </div>
 
             <div class="col-span-7 md:col-span-5 flex items-center">
@@ -169,28 +116,15 @@ function renderFileList(files) {
 
             <div class="hidden md:block md:col-span-3 text-right text-sm text-secondary font-medium">${file.isDir ? 'Dossier' : file.size}</div>
 
-            <div class="col-span-4 md:col-span-3 text-right flex justify-end items-center space-x-2">
-                ${!file.isDir ? `
-                <button onclick="event.stopPropagation(); downloadFile('${file.path.replace(/'/g, "\\'")}')"
-                        title="Télécharger"
-                        class="p-2 text-secondary hover:text-accent transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                    </svg>
-                </button>
-                ` : ''}
+            <div class="col-span-4 md:col-span-3 text-right">
                 <span class="text-gray-300 group-hover:text-accent">→</span>
             </div>
         </div>
     `}).join('');
 }
 
-/**
- * ACTIONS AU CLIC SUR UNE LIGNE
- */
 function handleItemClick(event, isDir, path) {
     if (isDir === 'true') loadFiles(path);
-    else downloadFile(path);
 }
 
 /**
@@ -205,71 +139,88 @@ function toggleItemSelection(checkbox) {
 
 function toggleSelectAll() {
     const checkboxes = document.querySelectorAll('.item-checkbox');
-    const shouldSelectAll = selectedPaths.size < allFilesCount;
-    selectedPaths.clear();
-    checkboxes.forEach(cb => {
-        cb.checked = shouldSelectAll;
-        if (shouldSelectAll) selectedPaths.add(cb.getAttribute('data-path'));
+    const currentFolderFiles = Array.from(checkboxes).map(cb => cb.getAttribute('data-path'));
+
+    // Si tout le dossier actuel est déjà sélectionné, on enlève tout
+    const allChecked = currentFolderFiles.every(path => selectedPaths.has(path));
+
+    currentFolderFiles.forEach(path => {
+        if (allChecked) selectedPaths.delete(path);
+        else selectedPaths.add(path);
     });
-    updateToolbarState();
+
+    renderFileList(lastFilesData || []); // Optionnel : rafraîchir l'UI
+    loadFiles(currentPath, false); // Plus simple : recharger la vue actuelle
 }
 
 function updateToolbarState() {
+    const hasSelection = selectedPaths.size > 0;
     const selectBtnText = document.querySelector('#btn-select-all span');
-    if (allFilesCount > 0 && selectedPaths.size === allFilesCount) {
-        selectBtnText.textContent = "Tout désélectionner";
-    } else {
-        selectBtnText.textContent = "Tout sélectionner";
+
+    // On change le texte du bouton selon la sélection
+    if (selectBtnText) {
+        selectBtnText.textContent = hasSelection ? `Vider la sélection (${selectedPaths.size})` : "Tout sélectionner";
     }
+
     const deleteBtn = document.getElementById('bulk-delete');
-    if (deleteBtn) deleteBtn.style.opacity = selectedPaths.size > 0 ? "1" : "0.5";
+    const downloadBtn = document.getElementById('bulk-download');
+
+    if (deleteBtn) deleteBtn.classList.toggle('hidden', !hasSelection);
+    if (downloadBtn) downloadBtn.classList.toggle('hidden', !hasSelection);
 }
 
 /**
- * SUPPRESSION
+ * TÉLÉCHARGEMENT ZIP (SÉLECTION MULTI-DOSSIERS)
+ */
+function downloadSelectedAsZip() {
+    if (selectedPaths.size === 0) return;
+
+    const baseUrl = CONFIG.endpoints.zip;
+    const params = new URLSearchParams();
+    // On envoie TOUS les chemins stockés, peu importe le dossier
+    selectedPaths.forEach(path => params.append('paths', path));
+
+    window.open(`${baseUrl}?${params.toString()}`, '_blank');
+}
+
+/**
+ * SUPPRESSION ET CRÉATION
  */
 async function deleteSelected() {
     const count = selectedPaths.size;
-    if (count === 0) return alert("Sélectionnez au moins un élément.");
-    if (!confirm(`Voulez-vous vraiment supprimer ces ${count} éléments ?`)) return;
+    if (count === 0) return;
+    if (!confirm(`Supprimer définitivement ${count} éléments ?`)) return;
+
+    const overlay = document.getElementById('upload-overlay');
+    const statusText = document.getElementById('upload-status');
+    statusText.textContent = "Suppression en cours...";
+    overlay.classList.remove('hidden');
 
     for (const path of selectedPaths) {
-        try {
-            await fetch(`${CONFIG.endpoints.delete}?path=${encodeURIComponent(path)}`, { method: 'POST' });
-        } catch (e) { console.error("Erreur suppression", e); }
+        await fetch(`${CONFIG.endpoints.delete}?path=${encodeURIComponent(path)}`, { method: 'POST' });
     }
+
+    selectedPaths.clear();
+    overlay.classList.add('hidden');
     loadFiles(currentPath, false);
 }
 
-/**
- * CRÉATION DE DOSSIER
- */
 async function createNewFolder() {
     const name = prompt("Nom du nouveau dossier :");
     if (!name) return;
     const res = await fetch(`${CONFIG.endpoints.mkdir}?parentPath=${encodeURIComponent(currentPath)}&name=${encodeURIComponent(name)}`, { method: 'POST' });
     if (res.ok) loadFiles(currentPath, false);
-    else alert("Erreur création dossier");
 }
 
 /**
- * DRAG & DROP
+ * UPLOAD ET NAVIGATION
  */
 function setupDragAndDrop() {
     const dropZone = document.getElementById('drop-zone');
     if (!dropZone) return;
-
-    window.addEventListener('dragenter', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('hidden');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-        if (e.relatedTarget === null) dropZone.classList.add('hidden');
-    });
-
+    window.addEventListener('dragenter', (e) => { e.preventDefault(); dropZone.classList.remove('hidden'); });
+    dropZone.addEventListener('dragleave', (e) => { if (e.relatedTarget === null) dropZone.classList.add('hidden'); });
     window.addEventListener('dragover', (e) => e.preventDefault());
-
     window.addEventListener('drop', (e) => {
         e.preventDefault();
         dropZone.classList.add('hidden');
@@ -278,9 +229,6 @@ function setupDragAndDrop() {
     });
 }
 
-/**
- * ENVOI DE FICHIERS (UPLOAD)
- */
 function handleFileUpload(input) {
     const files = Array.from(input.files);
     if (files.length > 0) handleMultipleFileUploads(files);
@@ -289,89 +237,46 @@ function handleFileUpload(input) {
 
 function handleMultipleFileUploads(files) {
     uploadQueue = [...files];
-    const totalFiles = uploadQueue.length;
-    processNextInQueue(0, totalFiles);
+    processNextInQueue(0, uploadQueue.length);
 }
 
 async function processNextInQueue(currentIndex, totalFiles) {
     if (uploadQueue.length === 0) {
-        isUploading = false;
         document.getElementById('upload-overlay').classList.add('hidden');
         loadFiles(currentPath, false);
         return;
     }
-
-    isUploading = true;
     const file = uploadQueue.shift();
     const overlay = document.getElementById('upload-overlay');
-    const progressBar = document.getElementById('upload-progress-bar');
-    const percentageText = document.getElementById('upload-percentage');
-    const filenameText = document.getElementById('upload-filename');
-    const countText = document.getElementById('upload-count');
-
-    filenameText.textContent = file.name;
-    progressBar.style.width = '0%';
-    percentageText.textContent = '0%';
-    countText.textContent = `Fichier ${currentIndex + 1} sur ${totalFiles}`;
-    countText.classList.remove('hidden');
+    document.getElementById('upload-status').textContent = "Envoi du fichier...";
+    document.getElementById('upload-filename').textContent = file.name;
+    document.getElementById('upload-count').textContent = `Fichier ${currentIndex + 1} sur ${totalFiles}`;
+    document.getElementById('upload-count').classList.remove('hidden');
     overlay.classList.remove('hidden');
 
     const formData = new FormData();
     formData.append('file', file);
-
     const xhr = new XMLHttpRequest();
-    currentUploadXHR = xhr;
     const url = `${CONFIG.endpoints.upload}?path=${encodeURIComponent(currentPath)}&fileName=${encodeURIComponent(file.name)}`;
-
     xhr.open('POST', url, true);
     xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
             const percent = Math.round((e.loaded / e.total) * 100);
-            progressBar.style.width = percent + '%';
-            percentageText.textContent = percent + '%';
+            document.getElementById('upload-progress-bar').style.width = percent + '%';
+            document.getElementById('upload-percentage').textContent = percent + '%';
         }
     };
-
     xhr.onload = () => {
         if (xhr.status === 200) processNextInQueue(currentIndex + 1, totalFiles);
-        else {
-            overlay.classList.add('hidden');
-            alert(`Erreur envoi ${file.name}: ${xhr.responseText}`);
-            isUploading = false;
-        }
+        else { alert(`Erreur envoi ${file.name}`); overlay.classList.add('hidden'); }
     };
-
-    xhr.onerror = () => {
-        overlay.classList.add('hidden');
-        alert("Erreur réseau");
-        isUploading = false;
-    };
-
-    document.getElementById('cancel-upload').onclick = () => {
-        xhr.abort();
-        uploadQueue = [];
-        isUploading = false;
-        overlay.classList.add('hidden');
-    };
-
+    document.getElementById('cancel-upload').onclick = () => { xhr.abort(); uploadQueue = []; overlay.classList.add('hidden'); };
     xhr.send(formData);
 }
 
-/**
- * TÉLÉCHARGEMENT
- */
-function downloadFile(path) {
-    window.open(`${CONFIG.endpoints.download}${encodeURIComponent(path)}`, '_blank');
-}
-
-/**
- * INTERFACE (BREADCRUMB & FIL D'ARIANE)
- */
 function updateBreadcrumb(path) {
     const el = document.getElementById('breadcrumb');
     const parts = path.split('/').filter(Boolean);
-    document.querySelector('#section-explorer h2').textContent = "Explorateur";
-
     let html = `<span class="text-secondary cursor-pointer hover:text-accent" onclick="loadFiles('')">${rootName}</span>`;
     let acc = '';
     parts.forEach(p => {
@@ -381,9 +286,6 @@ function updateBreadcrumb(path) {
     el.innerHTML = html;
 }
 
-/**
- * UTILITAIRES D'ICÔNES
- */
 function getFileIcon(file) {
     if (file.isDir) return '📁';
     const ext = file.name.split('.').pop().toLowerCase();
@@ -403,4 +305,19 @@ function getIconBgClass(name) {
     if (['pdf'].includes(ext)) return 'bg-red-100 text-red-600';
     if (['zip', 'rar'].includes(ext)) return 'bg-yellow-100 text-yellow-700';
     return 'bg-gray-100 text-gray-500';
+}
+
+function toggleTheme() {
+    const isDark = document.getElementById('theme-toggle').checked;
+    if (isDark) { document.body.classList.add('dark'); localStorage.setItem('theme', 'dark'); }
+    else { document.body.classList.remove('dark'); localStorage.setItem('theme', 'light'); }
+}
+
+function switchSection(id) {
+    ['explorer', 'about'].forEach(s => {
+        document.getElementById('section-' + s).classList.add('hidden');
+        document.getElementById('nav-' + s).classList.remove('active');
+    });
+    document.getElementById('section-' + id).classList.remove('hidden');
+    document.getElementById('nav-' + id).classList.add('active');
 }

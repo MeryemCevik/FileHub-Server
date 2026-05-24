@@ -5,10 +5,17 @@ import android.util.Log;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.zip.ZipOutputStream;
 
 import fi.iki.elonen.NanoHTTPD;
 
@@ -76,6 +83,28 @@ public class HttpServer extends NanoHTTPD {
                     return newFixedLengthResponse(Response.Status.OK, "text/plain", "OK");
                 }
                 return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur création dossier");
+            }
+
+            if ("/api/zip".equals(uri)) {
+                List<String> paths = session.getParameters().get("paths");
+                if (paths == null || paths.isEmpty()) {
+                    return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Aucun fichier sélectionné");
+                }
+
+                PipedInputStream pis = new PipedInputStream();
+                final PipedOutputStream pos = new PipedOutputStream(pis);
+
+                new Thread(() -> {
+                    try (ZipOutputStream zos = new ZipOutputStream(pos)) {
+                        fileManager.createZip(paths, zos);
+                    } catch (IOException e) {
+                        Log.e(TAG, "Erreur lors de la création du ZIP", e);
+                    }
+                }).start();
+
+                Response res = newChunkedResponse(Response.Status.OK, "application/zip", pis);
+                res.addHeader("Content-Disposition", "attachment; filename=\"archive_filehub.zip\"");
+                return res;
             }
 
             // GESTION DE L'UPLOAD
