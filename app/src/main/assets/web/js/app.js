@@ -1,47 +1,91 @@
+/**
+ * CONFIGURATION ET VARIABLES GLOBALES
+ */
 const CONFIG = {
     endpoints: {
-        files: '/api/files',
-        download: '/download/',
-        delete: '/api/delete',
-        mkdir: '/api/mkdir',
-        config: '/api/config',
-        upload: '/api/upload'
+        files: '/api/files',     // Liste des fichiers
+        download: '/download/',  // Téléchargement
+        delete: '/api/delete',   // Suppression
+        mkdir: '/api/mkdir',     // Création de dossier
+        config: '/api/config',   // Informations serveur (nom racine)
+        upload: '/api/upload'    // Envoi de fichiers
     }
 };
 
-let currentPath = '';
-let selectedPaths = new Set();
-let allFilesCount = 0;
-let rootName = 'Racine';
-let currentUploadXHR = null;
-let uploadQueue = [];
-let isUploading = false;
+let currentPath = '';            // Dossier actuel
+let selectedPaths = new Set();   // Liste des fichiers cochés
+let allFilesCount = 0;           // Nombre total de fichiers dans le dossier actuel
+let rootName = 'Racine';         // Nom du point de départ (dynamique)
+let currentUploadXHR = null;     // Requête d'upload en cours (pour annulation)
+let uploadQueue = [];            // File d'attente pour l'upload multiple
+let isUploading = false;         // État du transfert
 
 /**
- * Initialise l'application
+ * INITIALISATION DE L'APPLICATION
+ * Appelé au chargement de la page.
  */
 async function initApp() {
+    // 1. Gestion du thème (Sombre/Clair)
+    const isDark = localStorage.getItem('theme') === 'dark';
+    document.getElementById('theme-toggle').checked = isDark;
+    if (isDark) document.body.classList.add('dark');
+
+    // 2. Récupération de la configuration du serveur
     try {
         const res = await fetch(CONFIG.endpoints.config);
         const data = await res.json();
         rootName = data.rootName || 'Racine';
     } catch (e) {
-        console.error("Erreur config", e);
+        console.error("Erreur chargement config", e);
     }
+
+    // 3. Premier chargement des fichiers
     loadFiles('', true);
+
+    // 4. Activation du Drag & Drop
     setupDragAndDrop();
 }
 
+// Lancement automatique au chargement du script
 window.onload = initApp;
 
 /**
- * Charge les fichiers d'un dossier
+ * GESTION DU THÈME
+ */
+function toggleTheme() {
+    const isDark = document.getElementById('theme-toggle').checked;
+    if (isDark) {
+        document.body.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+    } else {
+        document.body.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+    }
+}
+
+/**
+ * NAVIGATION ENTRE SECTIONS (Explorateur / À propos)
+ */
+function switchSection(id) {
+    ['explorer', 'about'].forEach(s => {
+        document.getElementById('section-' + s).classList.add('hidden');
+        document.getElementById('nav-' + s).classList.remove('active');
+    });
+    document.getElementById('section-' + id).classList.remove('hidden');
+    document.getElementById('nav-' + id).classList.add('active');
+}
+
+/**
+ * CHARGEMENT DES FICHIERS
+ * @param {string} path Chemin relatif à charger
+ * @param {boolean} pushState Si true, ajoute une étape dans l'historique (bouton retour)
  */
 async function loadFiles(path, pushState = true) {
     currentPath = path;
     selectedPaths.clear();
     updateToolbarState();
 
+    // Mise à jour de l'historique du navigateur (pour le bouton retour du téléphone)
     if (pushState) {
         history.pushState({ path: path }, "", "");
     }
@@ -76,6 +120,9 @@ async function loadFiles(path, pushState = true) {
     }
 }
 
+/**
+ * ÉCOUTE DU BOUTON RETOUR PHYSIQUE
+ */
 window.onpopstate = function(event) {
     if (event.state && event.state.path !== undefined) {
         loadFiles(event.state.path, false);
@@ -84,6 +131,9 @@ window.onpopstate = function(event) {
     }
 };
 
+/**
+ * AFFICHAGE DE LA LISTE
+ */
 function renderFileList(files) {
     const fileListEl = document.getElementById('file-list');
     const emptyStateEl = document.getElementById('empty-state');
@@ -105,7 +155,7 @@ function renderFileList(files) {
              onclick="handleItemClick(event, '${file.isDir}', '${file.path.replace(/'/g, "\\'")}')">
 
             <div class="col-span-1 flex items-center" onclick="event.stopPropagation()">
-                <input type="checkbox" class="item-checkbox w-4 h-4 rounded border-gray-300 text-accent"
+                <input type="checkbox" class="item-checkbox w-4 h-4 rounded border-gray-300 text-accent focus:ring-accent"
                        data-path="${file.path.replace(/'/g, "\\'")}" onchange="toggleItemSelection(this)">
             </div>
 
@@ -118,16 +168,34 @@ function renderFileList(files) {
             </div>
 
             <div class="hidden md:block md:col-span-3 text-right text-sm text-secondary font-medium">${file.isDir ? 'Dossier' : file.size}</div>
-            <div class="col-span-4 md:col-span-3 text-right text-gray-300 group-hover:text-accent">→</div>
+
+            <div class="col-span-4 md:col-span-3 text-right flex justify-end items-center space-x-2">
+                ${!file.isDir ? `
+                <button onclick="event.stopPropagation(); downloadFile('${file.path.replace(/'/g, "\\'")}')"
+                        title="Télécharger"
+                        class="p-2 text-secondary hover:text-accent transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                </button>
+                ` : ''}
+                <span class="text-gray-300 group-hover:text-accent">→</span>
+            </div>
         </div>
     `}).join('');
 }
 
+/**
+ * ACTIONS AU CLIC SUR UNE LIGNE
+ */
 function handleItemClick(event, isDir, path) {
     if (isDir === 'true') loadFiles(path);
-    else window.open(`${CONFIG.endpoints.download}${path}`, '_blank');
+    else downloadFile(path);
 }
 
+/**
+ * GESTION DE LA SÉLECTION
+ */
 function toggleItemSelection(checkbox) {
     const path = checkbox.getAttribute('data-path');
     if (checkbox.checked) selectedPaths.add(path);
@@ -157,10 +225,13 @@ function updateToolbarState() {
     if (deleteBtn) deleteBtn.style.opacity = selectedPaths.size > 0 ? "1" : "0.5";
 }
 
+/**
+ * SUPPRESSION
+ */
 async function deleteSelected() {
     const count = selectedPaths.size;
     if (count === 0) return alert("Sélectionnez au moins un élément.");
-    if (!confirm(`Supprimer ${count} éléments ?`)) return;
+    if (!confirm(`Voulez-vous vraiment supprimer ces ${count} éléments ?`)) return;
 
     for (const path of selectedPaths) {
         try {
@@ -170,6 +241,9 @@ async function deleteSelected() {
     loadFiles(currentPath, false);
 }
 
+/**
+ * CRÉATION DE DOSSIER
+ */
 async function createNewFolder() {
     const name = prompt("Nom du nouveau dossier :");
     if (!name) return;
@@ -179,10 +253,11 @@ async function createNewFolder() {
 }
 
 /**
- * CONFIGURATION DU DRAG & DROP
+ * DRAG & DROP
  */
 function setupDragAndDrop() {
     const dropZone = document.getElementById('drop-zone');
+    if (!dropZone) return;
 
     window.addEventListener('dragenter', (e) => {
         e.preventDefault();
@@ -190,43 +265,32 @@ function setupDragAndDrop() {
     });
 
     dropZone.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('hidden');
+        if (e.relatedTarget === null) dropZone.classList.add('hidden');
     });
 
-    window.addEventListener('dragover', (e) => {
-        e.preventDefault();
-    });
+    window.addEventListener('dragover', (e) => e.preventDefault());
 
     window.addEventListener('drop', (e) => {
         e.preventDefault();
         dropZone.classList.add('hidden');
-
         const files = Array.from(e.dataTransfer.files);
-        if (files.length > 0) {
-            handleMultipleFileUploads(files);
-        }
+        if (files.length > 0) handleMultipleFileUploads(files);
     });
 }
 
 /**
- * GÈRE L'UPLOAD DE PLUSIEURS FICHIERS
+ * ENVOI DE FICHIERS (UPLOAD)
  */
+function handleFileUpload(input) {
+    const files = Array.from(input.files);
+    if (files.length > 0) handleMultipleFileUploads(files);
+    input.value = '';
+}
+
 function handleMultipleFileUploads(files) {
     uploadQueue = [...files];
     const totalFiles = uploadQueue.length;
     processNextInQueue(0, totalFiles);
-}
-
-/**
- * Gère l'envoi via l'input file classique
- */
-function handleFileUpload(input) {
-    const files = Array.from(input.files);
-    if (files.length > 0) {
-        handleMultipleFileUploads(files);
-    }
-    input.value = ''; // Reset
 }
 
 async function processNextInQueue(currentIndex, totalFiles) {
@@ -244,9 +308,7 @@ async function processNextInQueue(currentIndex, totalFiles) {
     const percentageText = document.getElementById('upload-percentage');
     const filenameText = document.getElementById('upload-filename');
     const countText = document.getElementById('upload-count');
-    const cancelBtn = document.getElementById('cancel-upload');
 
-    // UI Update
     filenameText.textContent = file.name;
     progressBar.style.width = '0%';
     percentageText.textContent = '0%';
@@ -259,11 +321,9 @@ async function processNextInQueue(currentIndex, totalFiles) {
 
     const xhr = new XMLHttpRequest();
     currentUploadXHR = xhr;
-
     const url = `${CONFIG.endpoints.upload}?path=${encodeURIComponent(currentPath)}&fileName=${encodeURIComponent(file.name)}`;
 
     xhr.open('POST', url, true);
-
     xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
             const percent = Math.round((e.loaded / e.total) * 100);
@@ -273,22 +333,21 @@ async function processNextInQueue(currentIndex, totalFiles) {
     };
 
     xhr.onload = () => {
-        if (xhr.status === 200) {
-            processNextInQueue(currentIndex + 1, totalFiles);
-        } else {
+        if (xhr.status === 200) processNextInQueue(currentIndex + 1, totalFiles);
+        else {
             overlay.classList.add('hidden');
-            alert(`Erreur lors de l'envoi de ${file.name}: ${xhr.responseText}`);
+            alert(`Erreur envoi ${file.name}: ${xhr.responseText}`);
             isUploading = false;
         }
     };
 
     xhr.onerror = () => {
         overlay.classList.add('hidden');
-        alert("Erreur réseau ou serveur inaccessible.");
+        alert("Erreur réseau");
         isUploading = false;
     };
 
-    cancelBtn.onclick = () => {
+    document.getElementById('cancel-upload').onclick = () => {
         xhr.abort();
         uploadQueue = [];
         isUploading = false;
@@ -298,11 +357,21 @@ async function processNextInQueue(currentIndex, totalFiles) {
     xhr.send(formData);
 }
 
+/**
+ * TÉLÉCHARGEMENT
+ */
+function downloadFile(path) {
+    window.open(`${CONFIG.endpoints.download}${encodeURIComponent(path)}`, '_blank');
+}
+
+/**
+ * INTERFACE (BREADCRUMB & FIL D'ARIANE)
+ */
 function updateBreadcrumb(path) {
     const el = document.getElementById('breadcrumb');
-    const titleEl = document.querySelector('#section-explorer h2');
     const parts = path.split('/').filter(Boolean);
-    titleEl.textContent = "Explorateur";
+    document.querySelector('#section-explorer h2').textContent = "Explorateur";
+
     let html = `<span class="text-secondary cursor-pointer hover:text-accent" onclick="loadFiles('')">${rootName}</span>`;
     let acc = '';
     parts.forEach(p => {
@@ -312,6 +381,9 @@ function updateBreadcrumb(path) {
     el.innerHTML = html;
 }
 
+/**
+ * UTILITAIRES D'ICÔNES
+ */
 function getFileIcon(file) {
     if (file.isDir) return '📁';
     const ext = file.name.split('.').pop().toLowerCase();
