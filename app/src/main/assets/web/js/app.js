@@ -139,9 +139,9 @@ function toggleItemSelection(checkbox) {
 
 function toggleSelectAll() {
     const checkboxes = document.querySelectorAll('.item-checkbox');
-    const currentFolderFiles = Array.from(checkboxes).map(cb => cb.getAttribute('data-path'));
+    if (checkboxes.length === 0) return;
 
-    // Si tout le dossier actuel est déjà sélectionné, on enlève tout
+    const currentFolderFiles = Array.from(checkboxes).map(cb => cb.getAttribute('data-path'));
     const allChecked = currentFolderFiles.every(path => selectedPaths.has(path));
 
     currentFolderFiles.forEach(path => {
@@ -149,17 +149,25 @@ function toggleSelectAll() {
         else selectedPaths.add(path);
     });
 
-    renderFileList(lastFilesData || []); // Optionnel : rafraîchir l'UI
-    loadFiles(currentPath, false); // Plus simple : recharger la vue actuelle
+    // Mise à jour visuelle immédiate
+    checkboxes.forEach(cb => {
+        cb.checked = !allChecked;
+    });
+
+    updateToolbarState();
 }
 
 function updateToolbarState() {
     const hasSelection = selectedPaths.size > 0;
     const selectBtnText = document.querySelector('#btn-select-all span');
 
-    // On change le texte du bouton selon la sélection
+    // On calcule si tous les fichiers du dossier ACTUEL sont cochés
+    const checkboxes = document.querySelectorAll('.item-checkbox');
+    const currentFolderFiles = Array.from(checkboxes).map(cb => cb.getAttribute('data-path'));
+    const allInFolderChecked = currentFolderFiles.length > 0 && currentFolderFiles.every(path => selectedPaths.has(path));
+
     if (selectBtnText) {
-        selectBtnText.textContent = hasSelection ? `Vider la sélection (${selectedPaths.size})` : "Tout sélectionner";
+        selectBtnText.textContent = allInFolderChecked ? "Tout désélectionner" : "Tout sélectionner";
     }
 
     const deleteBtn = document.getElementById('bulk-delete');
