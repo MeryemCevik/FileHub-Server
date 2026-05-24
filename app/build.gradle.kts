@@ -63,6 +63,7 @@ dependencies {
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
     implementation(libs.nanohttpd)
     implementation(libs.commons.fileupload)
+    implementation(libs.zxing.core)
     compileOnly(libs.servlet.api)
 
 }

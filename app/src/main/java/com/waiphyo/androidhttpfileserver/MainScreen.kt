@@ -26,6 +26,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.waiphyo.androidhttpfileserver.ui.theme.FileHubTheme
 
+import android.widget.Toast
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.window.Dialog
+
 /**
  * Interface principale de l'application Android (Panneau de contrôle).
  * Gère l'affichage responsive et le basculement de thème.
@@ -43,6 +47,9 @@ fun MainApp(
     val sharedPath by viewModel.sharedPath.collectAsState()
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     val context = LocalContext.current
+
+    // État pour afficher le QR Code
+    var showQrDialog by remember { mutableStateOf(false) }
 
     FileHubTheme(darkTheme = isDarkMode) {
         Surface(
@@ -119,21 +126,34 @@ fun MainApp(
 
                             if (serverState) {
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     TextButton(
                                         onClick = {
                                             val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                             val clip = android.content.ClipData.newPlainText("URL Serveur", serverUrl)
                                             clipboard.setPrimaryClip(clip)
-                                        }
+                                            Toast.makeText(context, "Lien copié !", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.weight(1f)
                                     ) {
                                         Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(Modifier.width(4.dp))
                                         Text("Copier", style = MaterialTheme.typography.labelLarge)
                                     }
 
-                                    TextButton(onClick = onOpenBrowser) {
+                                    TextButton(
+                                        onClick = { showQrDialog = true },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(Icons.Default.QrCode, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Scanner", style = MaterialTheme.typography.labelLarge)
+                                    }
+
+                                    TextButton(onClick = onOpenBrowser, modifier = Modifier.weight(1f)) {
                                         Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(Modifier.width(4.dp))
                                         Text("Ouvrir", style = MaterialTheme.typography.labelLarge)
@@ -141,6 +161,12 @@ fun MainApp(
                                 }
                             }
                         }
+                    }
+
+                    // --- DIALOG DU QR CODE ---
+                    if (showQrDialog) {
+                        val serverUrl = "http://$ipAddress:$port"
+                        QrCodeDialog(url = serverUrl, onDismiss = { showQrDialog = false })
                     }
 
                     // --- CARTE DE CONFIGURATION ---
@@ -260,6 +286,60 @@ fun MainApp(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Dialogue affichant le QR Code pour un accès rapide.
+ */
+@Composable
+fun QrCodeDialog(url: String, onDismiss: () -> Unit) {
+    val qrBitmap = remember(url) { QrCodeGenerator.generateQrCode(url) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    "Scanner pour accéder",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                if (qrBitmap != null) {
+                    Image(
+                        bitmap = qrBitmap.asImageBitmap(),
+                        contentDescription = "QR Code",
+                        modifier = Modifier
+                            .size(200.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+
+                Text(
+                    url,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Fermer")
                 }
             }
         }
