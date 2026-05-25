@@ -1,144 +1,176 @@
 package com.waiphyo.androidhttpfileserver.server;
 
 import android.content.Context;
-import android.os.Environment;
 import android.util.Log;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.zip.ZipOutputStream;
 
 import fi.iki.elonen.NanoHTTPD;
 
 /**
- * Serveur HTTP basé sur NanoHTTPD.
- * Gère les requêtes pour l'API de fichiers, les téléchargements et les ressources statiques Web.
+ * Serveur HTTP minimaliste.
+ * Gère les requêtes API, le téléchargement et l'upload de fichiers.
  */
 public class HttpServer extends NanoHTTPD {
     private static final String TAG = "HttpServer";
     private final Context mContext;
+    private final FileManager fileManager;
 
-    public HttpServer(Context context, int port) {
+    public HttpServer(Context context, int port, String rootPath) {
         super(port);
         this.mContext = context;
+        this.fileManager = new FileManager(rootPath);
+        
+        // Configuration du dossier temporaire pour l'upload sur Android
+        setTempFileManagerFactory(new TempFileManagerFactory() {
+            @Override
+            public TempFileManager create() {
+                return new DefaultTempFileManager() {
+                    @Override
+                    public void clear() {
+                        super.clear();
+                    }
+                };
+            }
+        });
+        
+        // Force l'utilisation du dossier cache de l'app pour les fichiers temporaires
+        System.setProperty("java.io.tmpdir", context.getCacheDir().getAbsolutePath());
     }
 
     @Override
     public Response serve(IHTTPSession session) {
         String uri = session.getUri();
         Method method = session.getMethod();
-        Log.d(TAG, "Requête reçue: " + method + " " + uri);
+        Log.d(TAG, "Requête: " + method + " " + uri);
 
-        // 1. API: Liste des fichiers au format JSON
-        if ("/api/files".equals(uri)) {
-            return handleFileListApi(session);
-        }
-
-        // 2. TÉLÉCHARGEMENT: Sert les fichiers réels du stockage Android
-        if (uri.startsWith("/download/")) {
-            return handleDownload(uri.substring("/download/".length()));
-        }
-
-        // 3. RESSOURCES STATIQUES: Sert l'interface Web (HTML/JS/CSS) depuis les assets
-        String assetPath = "web" + uri;
-        if ("/".equals(uri)) assetPath = "web/index.html";
-        
         try {
-            InputStream is = mContext.getAssets().open(assetPath);
-            String mimeType = resolveMimeType(assetPath);
-            return newChunkedResponse(Response.Status.OK, mimeType, is);
-        } catch (IOException e) {
-            // Si le fichier n'est pas trouvé dans les assets, renvoie une erreur 404
-            return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Fichier non trouvé");
-        }
-    }
+            // ROUTAGE API
+            if ("/api/config".equals(uri)) {
+                return newFixedLengthResponse(Response.Status.OK, "application/json", 
+                    "{\"rootName\":\"" + fileManager.getRootName() + "\"}");
+            }
 
-    /**
-     * Parcourt le stockage externe pour renvoyer une liste de fichiers JSON.
-     */
-    private Response handleFileListApi(IHTTPSession session) {
-        String path = session.getParameters().get("path") != null ? session.getParameters().get("path").get(0) : null;
-        if (path == null) path = "";
-        
-        File root = Environment.getExternalStorageDirectory();
-        File targetDir = path.isEmpty() ? root : new File(root, path);
+            if ("/api/files".equals(uri)) {
+                String path = session.getParameters().get("path") != null ? session.getParameters().get("path").get(0) : "";
+                return newFixedLengthResponse(Response.Status.OK, "application/json", fileManager.getFileListJson(path));
+            }
 
-        if (!targetDir.exists() || !targetDir.isDirectory()) {
-            return newFixedLengthResponse(Response.Status.NOT_FOUND, "application/json", "[]");
-        }
+            if ("/api/delete".equals(uri)) {
+                String path = session.getParameters().get("path") != null ? session.getParameters().get("path").get(0) : "";
+                if (fileManager.deleteItem(path)) {
+                    return newFixedLengthResponse(Response.Status.OK, "text/plain", "OK");
+                }
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur suppression");
+            }
 
-        File[] files = targetDir.listFiles();
-        StringBuilder json = new StringBuilder("[");
-        if (files != null) {
-            // Tri : Dossiers d'abord, puis fichiers par nom (insensible à la casse)
-            Arrays.sort(files, (f1, f2) -> {
-                if (f1.isDirectory() && !f2.isDirectory()) return -1;
-                if (!f1.isDirectory() && f2.isDirectory()) return 1;
-                return f1.getName().compareToIgnoreCase(f2.getName());
-            });
+            if ("/api/mkdir".equals(uri)) {
+                String parent = session.getParameters().get("parentPath") != null ? session.getParameters().get("parentPath").get(0) : "";
+                String name = session.getParameters().get("name") != null ? session.getParameters().get("name").get(0) : "";
+                if (fileManager.makeDirectory(parent, name)) {
+                    return newFixedLengthResponse(Response.Status.OK, "text/plain", "OK");
+                }
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur création dossier");
+            }
 
-            for (int i = 0; i < files.length; i++) {
-                File f = files[i];
-                boolean isDir = f.isDirectory();
-                String relativePath = path.isEmpty() ? f.getName() : path + "/" + f.getName();
+            if ("/api/zip".equals(uri)) {
+                List<String> paths = session.getParameters().get("paths");
+                if (paths == null || paths.isEmpty()) {
+                    return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Aucun fichier sélectionné");
+                }
+
+                PipedInputStream pis = new PipedInputStream();
+                final PipedOutputStream pos = new PipedOutputStream(pis);
+
+                new Thread(() -> {
+                    try (ZipOutputStream zos = new ZipOutputStream(pos)) {
+                        fileManager.createZip(paths, zos);
+                    } catch (IOException e) {
+                        Log.e(TAG, "Erreur lors de la création du ZIP", e);
+                    }
+                }).start();
+
+                Response res = newChunkedResponse(Response.Status.OK, "application/zip", pis);
+                res.addHeader("Content-Disposition", "attachment; filename=\"archive_filehub.zip\"");
+                return res;
+            }
+
+            // GESTION DE L'UPLOAD
+            if ("/api/upload".equals(uri) && method == Method.POST) {
+                Log.d(TAG, "Début de l'upload...");
+                Map<String, String> files = new HashMap<>();
                 
-                json.append("{");
-                json.append("\"name\":\"").append(f.getName()).append("\",");
-                json.append("\"isDir\":").append(isDir).append(",");
-                json.append("\"path\":\"").append(relativePath).append("\",");
-                json.append("\"size\":\"").append(isDir ? "--" : formatSize(f.length())).append("\"");
-                json.append("}");
-                if (i < files.length - 1) json.append(",");
-            }
-        }
-        json.append("]");
-        return newFixedLengthResponse(Response.Status.OK, "application/json", json.toString());
-    }
+                // parseBody est crucial pour récupérer le fichier multipart
+                session.parseBody(files);
+                
+                String path = session.getParameters().get("path") != null ? session.getParameters().get("path").get(0) : "";
+                String fileName = session.getParameters().get("fileName") != null ? session.getParameters().get("fileName").get(0) : "file";
 
-    /**
-     * Lit un fichier depuis le disque pour le proposer au téléchargement.
-     */
-    private Response handleDownload(String filePath) {
-        try {
-            File root = Environment.getExternalStorageDirectory();
-            File file = new File(root, filePath);
+                if (files.containsKey("file")) {
+                    String tempFilePath = files.get("file");
+                    File tempFile = new File(tempFilePath);
+                    
+                    Log.d(TAG, "Fichier temporaire reçu: " + tempFilePath + " pour destination: " + path);
+                    
+                    if (fileManager.saveFile(path, fileName, tempFile)) {
+                        Log.d(TAG, "Upload réussi !");
+                        return newFixedLengthResponse(Response.Status.OK, "text/plain", "OK");
+                    } else {
+                        return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Échec de la sauvegarde (Espace insuffisant, nom invalide ou erreur système)");
+                    }
+                }
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Aucun fichier reçu");
+            }
+
+            // TÉLÉCHARGEMENT
+            if (uri.startsWith("/download/")) {
+                File file = fileManager.getFile(uri.substring("/download/".length()));
+                if (file != null) {
+                    InputStream is = new FileInputStream(file);
+                    Response res = newChunkedResponse(Response.Status.OK, resolveMimeType(file.getName()), is);
+                    res.addHeader("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"");
+                    return res;
+                }
+                return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Fichier non trouvé");
+            }
+
+            // RESSOURCES STATIQUES (Interface Web)
+            String assetPath = "web" + uri;
+            if ("/".equals(uri)) assetPath = "web/index.html";
             
-            if (file.exists() && file.isFile()) {
-                InputStream is = new FileInputStream(file);
-                Response response = newChunkedResponse(Response.Status.OK, resolveMimeType(file.getName()), is);
-                // Ajout de l'en-tête Content-Disposition pour forcer le téléchargement
-                response.addHeader("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"");
-                return response;
+            try {
+                InputStream is = mContext.getAssets().open(assetPath);
+                return newChunkedResponse(Response.Status.OK, resolveMimeType(assetPath), is);
+            } catch (IOException e) {
+                return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "404 - Non trouvé");
             }
-        } catch (IOException e) {
-            Log.e(TAG, "Erreur lors du téléchargement", e);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur serveur: ", e);
+            return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur interne: " + e.getMessage());
         }
-        return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Fichier non trouvé");
     }
 
-    /**
-     * Détermine le type MIME en fonction de l'extension du fichier.
-     */
     private String resolveMimeType(String uri) {
-        if (uri.endsWith(".html")) return "text/html";
-        if (uri.endsWith(".js")) return "application/javascript";
-        if (uri.endsWith(".css")) return "text/css";
-        if (uri.endsWith(".png")) return "image/png";
-        if (uri.endsWith(".jpg") || uri.endsWith(".jpeg")) return "image/jpeg";
-        if (uri.endsWith(".pdf")) return "application/pdf";
-        if (uri.endsWith(".zip")) return "application/zip";
+        String lower = uri.toLowerCase();
+        if (lower.endsWith(".html")) return "text/html";
+        if (lower.endsWith(".js")) return "application/javascript";
+        if (lower.endsWith(".css")) return "text/css";
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".pdf")) return "application/pdf";
         return "application/octet-stream";
-    }
-
-    /**
-     * Formate la taille d'un fichier en unités lisibles (Ko, Mo, Go).
-     */
-    private String formatSize(long size) {
-        if (size <= 0) return "0 B";
-        final String[] units = new String[]{"B", "KB", "MB", "GB", "TB"};
-        int digitGroups = (int) (Math.log10(size) / Math.log10(1024));
-        return new java.text.DecimalFormat("#,##0.#").format(size / Math.pow(1024, digitGroups)) + " " + units[digitGroups];
     }
 }

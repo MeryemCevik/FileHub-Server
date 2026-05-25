@@ -9,6 +9,10 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
 
+    <!-- INDISPENSABLE POUR LA STABILITÉ : Autorisation du service de premier plan -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
 
     <application
         android:allowBackup="true"
@@ -22,6 +26,14 @@
         android:theme="@style/Theme.AndroidHttpFileServer"
         android:requestLegacyExternalStorage="true"
         tools:targetApi="31">
+
+        <!-- Déclaration du service avec son type (Data Sync pour un serveur de fichiers) -->
+        <service
+            android:name=".server.HttpServerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
