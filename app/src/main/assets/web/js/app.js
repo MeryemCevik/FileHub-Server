@@ -9,7 +9,8 @@ const CONFIG = {
         mkdir: '/api/mkdir',     // Création de dossier
         config: '/api/config',   // Informations serveur
         upload: '/api/upload',   // Envoi de fichiers
-        zip: '/api/zip'          // Téléchargement groupé (ZIP)
+        zip: '/api/zip',         // Téléchargement groupé (ZIP)
+        rename: '/api/rename'    // Renommer
     }
 };
 
@@ -20,6 +21,7 @@ let rootName = 'Racine';
 let currentUploadXHR = null;
 let uploadQueue = [];
 let isUploading = false;
+let renameTarget = null;
 
 /**
  * INITIALISATION
@@ -116,7 +118,14 @@ function renderFileList(files) {
 
             <div class="hidden md:block md:col-span-3 text-right text-sm text-secondary font-medium">${file.isDir ? 'Dossier' : file.size}</div>
 
-            <div class="col-span-4 md:col-span-3 text-right">
+            <div class="col-span-4 md:col-span-3 text-right flex items-center justify-end space-x-2">
+                <button onclick="event.stopPropagation(); openRenameModal('${file.path.replace(/'/g, "\\'")}', '${file.name.replace(/'/g, "\\'")}')"
+                        class="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
+                        title="Renommer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                    </svg>
+                </button>
                 <span class="text-gray-300 group-hover:text-accent">→</span>
             </div>
         </div>
@@ -218,6 +227,49 @@ async function createNewFolder() {
     if (!name) return;
     const res = await fetch(`${CONFIG.endpoints.mkdir}?parentPath=${encodeURIComponent(currentPath)}&name=${encodeURIComponent(name)}`, { method: 'POST' });
     if (res.ok) loadFiles(currentPath, false);
+}
+
+/**
+ * RENOMMAGE
+ */
+function openRenameModal(path, name) {
+    renameTarget = path;
+    const modal = document.getElementById('rename-modal');
+    const input = document.getElementById('rename-input');
+    input.value = name;
+    modal.classList.remove('hidden');
+    input.focus();
+    input.select();
+
+    // Support de la touche Entrée
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter') confirmRename();
+    };
+
+    document.getElementById('confirm-rename-btn').onclick = confirmRename;
+}
+
+function closeRenameModal() {
+    document.getElementById('rename-modal').classList.add('hidden');
+    renameTarget = null;
+}
+
+async function confirmRename() {
+    const newName = document.getElementById('rename-input').value.trim();
+    if (!newName || !renameTarget) return;
+
+    try {
+        const res = await fetch(`${CONFIG.endpoints.rename}?old=${encodeURIComponent(renameTarget)}&new=${encodeURIComponent(newName)}`, { method: 'POST' });
+        if (res.ok) {
+            closeRenameModal();
+            loadFiles(currentPath, false);
+        } else {
+            const errorText = await res.text();
+            alert(errorText || "Erreur lors du renommage. Le nom existe peut-être déjà.");
+        }
+    } catch (e) {
+        alert("Erreur de connexion au serveur.");
+    }
 }
 
 /**

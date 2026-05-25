@@ -143,6 +143,29 @@
     </div>
 </div>
 
+<!-- MODALE DE RENOMMAGE -->
+<div id="rename-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-zinc-900 w-full max-w-md p-8 rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10">
+        <h3 class="text-xl font-black text-primary mb-2 uppercase tracking-tight">Renommer l'élément</h3>
+        <p class="text-xs text-secondary mb-6">Modifier le nom du fichier ou du dossier.</p>
+
+        <input type="text" id="rename-input"
+               class="w-full bg-gray-100 dark:bg-zinc-800 border-none rounded-xl p-4 text-primary font-bold mb-6 focus:ring-2 focus:ring-blue-500 outline-none"
+               placeholder="Nouveau nom">
+
+        <div class="flex space-x-3">
+            <button onclick="closeRenameModal()"
+                    class="flex-1 p-4 rounded-xl font-bold text-secondary bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-all uppercase text-xs tracking-widest">
+                Annuler
+            </button>
+            <button id="confirm-rename-btn"
+                    class="flex-1 p-4 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20 uppercase text-xs tracking-widest">
+                Renommer
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- MAIN -->
 
 <div class="flex-grow p-6 md:p-12 overflow-y-auto">

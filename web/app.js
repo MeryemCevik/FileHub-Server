@@ -10,12 +10,15 @@ const CONFIG = {
         start: '/api/server/start',
         stop: '/api/server/stop',
         download: '/download',
-        delete: '/api/delete'
+        delete: '/api/delete',
+        rename: '/api/rename'
     }
 };
 
 let currentPath = '';
 let pendingDeletePath = '';
+let pendingRenamePath = '';
+let pendingRenameOldName = '';
 
 /**
  * SERVER CONTROL: Start the server
@@ -160,6 +163,10 @@ function renderFileList(files) {
                         ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>'
                         : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>'}
                 </button>
+                <button class="inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                        onclick="confirmRename(event, '${file.path}', '${file.name.replace(/'/g, "\\'")}')">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                </button>
                 <button class="inline-flex items-center justify-center p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                         onclick="confirmDelete(event, '${file.path}', '${file.name.replace(/'/g, "\\'")}')">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -291,4 +298,105 @@ function showNotification(message, type = 'info') {
     setTimeout(() => {
         notification.remove();
     }, 4000);
+}
+
+/**
+ * RENAME: Show rename confirmation modal
+ */
+function confirmRename(event, path, fileName) {
+    event.stopPropagation();
+    
+    pendingRenamePath = path;
+    pendingRenameOldName = fileName;
+    const modal = document.getElementById('rename-modal');
+    const inputField = document.getElementById('rename-input');
+    
+    if (inputField) {
+        inputField.value = fileName;
+        inputField.focus();
+        // Select all text
+        inputField.select();
+    }
+    
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+/**
+ * CANCEL: Close rename modal
+ */
+function cancelRename() {
+    const modal = document.getElementById('rename-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    pendingRenamePath = '';
+    pendingRenameOldName = '';
+}
+
+/**
+ * RENAME: Perform actual rename
+ */
+async function renameFile() {
+    if (!pendingRenamePath || !pendingRenameOldName) return;
+    
+    const inputField = document.getElementById('rename-input');
+    if (!inputField) return;
+    
+    const newName = inputField.value.trim();
+    
+    // Validation
+    if (!newName) {
+        showNotification("Le nouveau nom ne peut pas être vide", "error");
+        return;
+    }
+    
+    if (newName === pendingRenameOldName) {
+        cancelRename();
+        return;
+    }
+    
+    // Check for invalid characters
+    if (newName.includes('/') || newName.includes('\\')) {
+        showNotification("Le nom ne peut pas contenir / ou \\", "error");
+        return;
+    }
+    
+    const modal = document.getElementById('rename-modal');
+    const confirmBtn = document.getElementById('rename-confirm-btn');
+    const cancelBtn = document.getElementById('rename-cancel-btn');
+    
+    // Disable buttons during rename
+    if (confirmBtn) confirmBtn.disabled = true;
+    if (cancelBtn) cancelBtn.disabled = true;
+    
+    try {
+        console.log("Renaming file from:", pendingRenamePath, "to:", newName);
+        const response = await fetch(
+            `${CONFIG.endpoints.rename}?old=${encodeURIComponent(pendingRenamePath)}&new=${encodeURIComponent(newName)}`,
+            { method: 'GET' }
+        );
+        
+        if (response.ok) {
+            console.log("File renamed successfully");
+            // Close modal
+            cancelRename();
+            // Refresh file list
+            loadFiles(currentPath);
+            // Show success message
+            showNotification("Fichier/dossier renommé avec succès", "success");
+        } else {
+            const errorText = await response.text();
+            console.error("Rename failed:", errorText);
+            showNotification("Erreur lors du renommage: " + errorText, "error");
+        }
+    } catch (error) {
+        console.error("Error renaming file:", error);
+        showNotification("Erreur lors du renommage: " + error.message, "error");
+    } finally {
+        // Re-enable buttons
+        if (confirmBtn) confirmBtn.disabled = false;
+        if (cancelBtn) cancelBtn.disabled = false;
+    }
 }

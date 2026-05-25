@@ -85,6 +85,21 @@ public class HttpServer extends NanoHTTPD {
                 return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur création dossier");
             }
 
+            if ("/api/rename".equals(uri)) {
+                String oldPath = session.getParameters().get("old") != null ? session.getParameters().get("old").get(0) : "";
+                String newName = session.getParameters().get("new") != null ? session.getParameters().get("new").get(0) : "";
+                
+                if (oldPath.isEmpty() || newName.isEmpty()) {
+                    return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Paramètres manquants");
+                }
+                
+                if (fileManager.renameItem(oldPath, newName)) {
+                    return newFixedLengthResponse(Response.Status.OK, "text/plain", "OK");
+                } else {
+                    return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur renommage: le nouveau nom existe peut-être déjà");
+                }
+            }
+
             if ("/api/zip".equals(uri)) {
                 List<String> paths = session.getParameters().get("paths");
                 if (paths == null || paths.isEmpty()) {

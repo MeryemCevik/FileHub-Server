@@ -189,6 +189,36 @@ public class FileManager {
         return !newDir.exists() && newDir.mkdirs();
     }
 
+    public boolean renameItem(String oldRelativePath, String newName) {
+        // Validation du nouveau nom
+        if (newName == null || newName.trim().isEmpty() || newName.contains("/") || newName.contains("\\")) {
+            return false;
+        }
+
+        File oldFile = new File(rootPath, oldRelativePath);
+        if (!oldFile.exists()) {
+            return false;
+        }
+
+        // Extraction du répertoire parent
+        String parentPath = "";
+        int lastSeparator = oldRelativePath.lastIndexOf('/');
+        if (lastSeparator > 0) {
+            parentPath = oldRelativePath.substring(0, lastSeparator);
+        }
+
+        // Création du nouveau chemin
+        File newFile = new File(rootPath, parentPath.isEmpty() ? newName : parentPath + "/" + newName);
+
+        // Vérification que le nouveau nom n'existe pas déjà
+        if (newFile.exists()) {
+            return false;
+        }
+
+        // Effectuer le renommage
+        return oldFile.renameTo(newFile);
+    }
+
     public File getFile(String relativePath) {
         File file = new File(rootPath, relativePath);
         return (file.exists() && file.isFile()) ? file : null;
