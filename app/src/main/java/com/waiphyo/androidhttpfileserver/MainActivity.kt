@@ -39,8 +39,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        checkAndRequestPermissions()
-
         setContent {
             FileHubTheme {
                 MainApp(
@@ -52,7 +50,10 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Auto-start server on launch
+        // Delay permissions and server start slightly to let UI render
+        checkAndRequestPermissions()
+        
+        // Auto-start server on launch (if permissions allow)
         viewModel.startServer(this)
     }
 
@@ -63,12 +64,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun getWifiIpAddress(): String {
-        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val linkProperties = connectivityManager.getLinkProperties(connectivityManager.activeNetwork)
-        val ipAddress = linkProperties?.linkAddresses?.firstOrNull {
-            it.address is Inet4Address && !it.address.isLoopbackAddress
-        }?.address
-        return ipAddress?.hostAddress ?: "0.0.0.0"
+        return try {
+            val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val activeNetwork = connectivityManager.activeNetwork
+            val linkProperties = connectivityManager.getLinkProperties(activeNetwork)
+            val ipAddress = linkProperties?.linkAddresses?.firstOrNull {
+                it.address is Inet4Address && !it.address.isLoopbackAddress
+            }?.address
+            ipAddress?.hostAddress ?: "127.0.0.1"
+        } catch (e: Exception) {
+            "127.0.0.1"
+        }
     }
 
     /**

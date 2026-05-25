@@ -1,5 +1,6 @@
 package com.waiphyo.androidhttpfileserver
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -18,17 +19,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.waiphyo.androidhttpfileserver.ui.theme.FileHubTheme
-
-import android.widget.Toast
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.window.Dialog
+import com.waiphyo.androidhttpfileserver.ui.theme.FileHubTheme
 
 /**
  * Interface principale de l'application Android (Panneau de contrôle).
@@ -387,14 +385,14 @@ fun FileHubLogo() {
         modifier = Modifier
             .size(40.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF2D6A4F)), // Vert foncé
+            .background(MaterialTheme.colorScheme.primary),
         contentAlignment = Alignment.Center
     ) {
-        Image(
-            painter = painterResource(id = R.mipmap.ic_launcher_foreground),
+        Icon(
+            imageVector = Icons.Default.CloudQueue,
             contentDescription = "Logo FileHub",
-            modifier = Modifier.size(40.dp),
-            contentScale = ContentScale.FillBounds
+            tint = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier.size(24.dp)
         )
     }
 }

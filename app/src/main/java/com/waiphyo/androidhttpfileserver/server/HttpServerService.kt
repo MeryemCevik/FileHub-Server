@@ -3,6 +3,7 @@ package com.waiphyo.androidhttpfileserver.server
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -35,7 +36,11 @@ class HttpServerService : Service() {
             val notification = createNotification()
             
             // 3. Démarrer le service en mode "Foreground" (priorité haute)
-            startForeground(NOTIFICATION_ID, notification)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
             
             // 4. Lancer le serveur HTTP réel
             startServer(port, path)
