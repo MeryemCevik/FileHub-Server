@@ -184,43 +184,38 @@
 
 <!-- LIGHTBOX -->
 <div id="lightbox" class="fixed inset-0 bg-black/95 backdrop-blur-sm z-[100] hidden flex flex-col items-center justify-center p-4 lg:p-12" onclick="closeLightbox()">
-    <button class="absolute top-6 right-6 text-white hover:text-gray-300 transition-all">
+
+    <!-- Controls -->
+    <button class="absolute top-6 right-6 text-white/50 hover:text-white transition-all z-[110]" onclick="closeLightbox()">
         <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
         </svg>
     </button>
 
-    <div class="relative flex-grow flex items-center justify-center w-full overflow-hidden">
-        <img id="lightbox-img" src="" alt="Aperçu" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onclick="event.stopPropagation()">
+    <button id="lb-prev" class="absolute left-4 top-1/2 -translate-y-1/2 p-4 text-white/30 hover:text-white transition-all z-[110]" onclick="event.stopPropagation(); navigateLightbox(-1)">
+        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7"></path></svg>
+    </button>
+
+    <button id="lb-next" class="absolute right-4 top-1/2 -translate-y-1/2 p-4 text-white/30 hover:text-white transition-all z-[110]" onclick="event.stopPropagation(); navigateLightbox(1)">
+        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"></path></svg>
+    </button>
+
+    <div class="relative flex-grow flex flex-col items-center justify-center w-full overflow-hidden">
+        <img id="lightbox-img" src="" alt="Aperçu" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl transition-all duration-300" onclick="event.stopPropagation()">
+        <p id="lightbox-caption" class="text-white/60 text-xs font-medium mt-4 tracking-wide truncate max-w-xl"></p>
     </div>
 
-    <div class="mt-8 pb-4" onclick="event.stopPropagation()">
-        <button id="lightbox-goto-btn" class="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-8 py-4 rounded-2xl font-bold flex items-center space-x-3 transition-all border border-white/10 group">
-             <svg class="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="mt-4 pb-4" onclick="event.stopPropagation()">
+        <button id="lightbox-goto-btn" class="bg-white/5 hover:bg-white/10 backdrop-blur-md text-white/80 px-6 py-3 rounded-xl font-bold flex items-center space-x-3 transition-all border border-white/10 group">
+             <svg class="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
              </svg>
-             <span class="uppercase text-xs tracking-widest">Aller à l'emplacement du fichier</span>
+             <span class="uppercase text-[10px] tracking-widest">Localiser le fichier</span>
         </button>
     </div>
 </div>
 
-<!-- IMAGE CHOICE MODAL -->
-<div id="image-choice-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="closeImageChoice()">
-    <div class="bg-white dark:bg-zinc-900 w-full max-w-xs p-6 rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10" onclick="event.stopPropagation()">
-        <h3 class="text-sm font-black text-primary mb-6 uppercase tracking-widest text-center">Options d'image</h3>
-        <div class="space-y-3">
-            <button id="choice-preview-btn" class="w-full p-4 bg-accent/10 text-accent rounded-2xl font-bold flex items-center justify-center space-x-3 hover:bg-accent/20 transition-all">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                <span>Aperçu direct</span>
-            </button>
-            <button id="choice-gallery-btn" class="w-full p-4 bg-blue-500/10 text-blue-600 rounded-2xl font-bold flex items-center justify-center space-x-3 hover:bg-blue-500/20 transition-all">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                <span>Voir en Galerie</span>
-            </button>
-            <button onclick="closeImageChoice()" class="w-full p-4 text-secondary font-bold text-xs uppercase tracking-widest pt-4">Annuler</button>
-        </div>
-    </div>
-</div>
+<!-- IMAGE CHOICE MODAL (REMOVED) -->
 
 <!-- MAIN -->
 
@@ -294,15 +289,6 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
                 </button>
-
-                <button onclick="switchSection('gallery')"
-                        title="Voir ce dossier en mode galerie"
-                        class="p-2 soft-bg text-secondary rounded-lg hover:text-accent transition-all flex items-center space-x-2 text-xs font-bold uppercase tracking-wider">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                    </svg>
-                    <span class="hidden sm:inline">Vue Galerie</span>
-                </button>
             </div>
         </header>
 
@@ -364,9 +350,21 @@
     <!-- GALLERY -->
 
     <section id="section-gallery" class="hidden max-w-6xl mx-auto">
-        <header class="mb-8">
-            <h2 class="text-3xl font-extrabold mb-2 text-primary">Galerie Photos</h2>
-            <p class="text-secondary text-sm">Visualisez toutes les images du dossier actuel.</p>
+        <header class="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div>
+                <h2 class="text-3xl font-extrabold mb-2 text-primary">Galerie Photos</h2>
+                <p class="text-secondary text-sm">Visualisez les images du dossier.</p>
+            </div>
+            <div class="flex items-center bg-white dark:bg-zinc-900 p-1 rounded-xl border border-border-color shadow-sm">
+                <button id="btn-gallery-local" onclick="loadGallery(currentPath, false)"
+                        class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all">
+                    Dossier actuel
+                </button>
+                <button id="btn-gallery-global" onclick="loadGallery('', true)"
+                        class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all">
+                    Tout le téléphone
+                </button>
+            </div>
         </header>
 
         <div id="gallery-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">

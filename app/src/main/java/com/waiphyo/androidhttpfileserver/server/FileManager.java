@@ -1,5 +1,7 @@
 package com.waiphyo.androidhttpfileserver.server;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -11,6 +13,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.media.ThumbnailUtils;
+import android.provider.MediaStore;
 
 /**
  * Gère toutes les opérations sur le système de fichiers.
@@ -261,6 +268,32 @@ public class FileManager {
     public File getFile(String relativePath) {
         File file = new File(rootPath, relativePath);
         return (file.exists() && file.isFile()) ? file : null;
+    }
+
+    /**
+     * Génère une miniature compressée pour une image.
+     */
+    public InputStream getThumbnail(File file) {
+        try {
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = 4; // Réduction de la taille par 4 pour économiser de la RAM
+            Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+            
+            if (bitmap == null) return null;
+
+            // Création d'une miniature carrée de 300px
+            Bitmap thumb = ThumbnailUtils.extractThumbnail(bitmap, 300, 300);
+            bitmap.recycle();
+
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            thumb.compress(Bitmap.CompressFormat.JPEG, 70, bos);
+            thumb.recycle();
+            
+            return new ByteArrayInputStream(bos.toByteArray());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public String formatSize(long size) {

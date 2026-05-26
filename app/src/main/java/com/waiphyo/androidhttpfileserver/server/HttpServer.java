@@ -94,11 +94,29 @@ public class HttpServer extends NanoHTTPD {
                     return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Paramètres manquants");
                 }
                 
+                // Validation côté serveur des caractères interdits
+                if (newName.matches(".*[\\\\/:*?\"<>|].*")) {
+                    return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Le nom contient des caractères interdits (\\ / : * ? \" < > |)");
+                }
+
                 if (fileManager.renameItem(oldPath, newName)) {
                     return newFixedLengthResponse(Response.Status.OK, "text/plain", "OK");
                 } else {
-                    return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur renommage: le nouveau nom existe peut-être déjà");
+                    return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur renommage: le nouveau nom existe peut-être déjà ou l'accès est refusé");
                 }
+            }
+
+            if ("/api/thumbnail".equals(uri)) {
+                String path = session.getParameters().get("path") != null ? session.getParameters().get("path").get(0) : "";
+                File file = fileManager.getFile(path);
+                if (file != null && file.exists()) {
+                    InputStream thumbnailStream = fileManager.getThumbnail(file);
+                    if (thumbnailStream != null) {
+                        return newChunkedResponse(Response.Status.OK, "image/jpeg", thumbnailStream);
+                    }
+                }
+                // Fallback vers l'image originale si erreur ou pas image
+                return serve(session); // Re-routé vers download ou 404
             }
 
             if ("/api/zip".equals(uri)) {

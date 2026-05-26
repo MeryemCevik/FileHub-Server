@@ -9,19 +9,25 @@ const CONFIG = {
         mkdir: '/api/mkdir',     // Création de dossier
         config: '/api/config',   // Informations serveur
         upload: '/api/upload',   // Envoi de fichiers
+        thumbnail: '/api/thumbnail', // Miniatures
         zip: '/api/zip',         // Téléchargement groupé (ZIP)
         rename: '/api/rename'    // Renommer
     }
 };
 
 let currentPath = '';
-let selectedPaths = new Set();   // Persiste désormais entre les dossiers
+let selectedPaths = new Set();
 let allFilesCount = 0;
 let rootName = 'Racine';
 let currentUploadXHR = null;
 let uploadQueue = [];
 let isUploading = false;
 let renameTarget = null;
+let targetGalleryPath = null;
+
+// Galerie & Lightbox
+let galleryImages = [];
+let currentLightboxIndex = -1;
 
 /**
  * INITIALISATION
@@ -127,9 +133,9 @@ function renderFileList(files) {
 
             <div class="col-span-4 md:col-span-3 text-right flex items-center justify-end space-x-2">
                 ${isImage ? `
-                    <button onclick="event.stopPropagation(); openImageChoice('${file.path.replace(/'/g, "\\'")}')"
+                    <button onclick="event.stopPropagation(); locateInGallery('${file.path.replace(/'/g, "\\'")}')"
                             class="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
-                            title="Options galerie">
+                            title="Localiser en Galerie">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                         </svg>
@@ -279,10 +285,17 @@ async function confirmRename() {
     const newName = document.getElementById('rename-input').value.trim();
     if (!newName || !renameTarget) return;
 
+    // Validation des caractères interdits
+    if (/[\\/:*?"<>|]/.test(newName)) {
+        alert("Le nom contient des caractères interdits (\\ / : * ? \" < > |)");
+        return;
+    }
+
     try {
         const res = await fetch(`${CONFIG.endpoints.rename}?old=${encodeURIComponent(renameTarget)}&new=${encodeURIComponent(newName)}`, { method: 'POST' });
         if (res.ok) {
             closeRenameModal();
+            selectedPaths.clear(); // Nettoyer la sélection après renommage
             loadFiles(currentPath, false);
         } else {
             const errorText = await res.text();
@@ -395,103 +408,162 @@ function toggleTheme() {
 }
 
 function switchSection(id) {
-    ['explorer', 'gallery', 'about'].forEach(s => {
+    const navItems = ['explorer', 'gallery', 'about'];
+    navItems.forEach(s => {
         document.getElementById('section-' + s).classList.add('hidden');
         document.getElementById('nav-' + s).classList.remove('active');
     });
+
     document.getElementById('section-' + id).classList.remove('hidden');
     document.getElementById('nav-' + id).classList.add('active');
 
-    // Hide/Show breadcrumb for About section
+    // Breadcrumb visibility
     document.getElementById('breadcrumb').classList.toggle('hidden', id === 'about');
 
-    if (id === 'gallery') loadGallery(currentPath);
-    if (id === 'explorer') loadFiles(currentPath, false);
+    if (id === 'gallery') {
+        let pathToLoad = currentPath;
+        // Si on vient de "Localiser en Galerie", on s'assure d'être dans le bon dossier
+        if (targetGalleryPath) {
+            const parts = targetGalleryPath.split('/');
+            if (parts.length > 1) {
+                parts.pop();
+                pathToLoad = parts.join('/');
+            } else {
+                pathToLoad = '';
+            }
+        }
+        loadGallery(pathToLoad, false);
+    }
+    if (id === 'explorer') {
+        loadFiles(currentPath, false);
+    }
 }
 
 /**
  * GALERIE PHOTOS
  */
-async function loadGallery(path) {
+async function loadGallery(path, recursive = false) {
     const gridEl = document.getElementById('gallery-grid');
     const emptyEl = document.getElementById('gallery-empty');
     const titleEl = document.querySelector('#section-gallery h2');
     const descEl = document.querySelector('#section-gallery p');
 
+    // UI active button state
+    document.getElementById('btn-gallery-local').classList.toggle('bg-accent', !recursive);
+    document.getElementById('btn-gallery-local').classList.toggle('text-white', !recursive);
+    document.getElementById('btn-gallery-global').classList.toggle('bg-accent', recursive);
+    document.getElementById('btn-gallery-global').classList.toggle('text-white', recursive);
+
     gridEl.innerHTML = '<div class="col-span-full py-20 text-center"><div class="inline-block loader rounded-full h-10 w-10 border-4 border-gray-200 border-t-accent mb-4"></div><p class="text-secondary">Scan des images...</p></div>';
     emptyEl.classList.add('hidden');
 
-    const isGlobal = path === '';
-    titleEl.textContent = isGlobal ? "Galerie Globale" : "Galerie Photos";
-    descEl.textContent = isGlobal ? "Affichage de toutes les images du téléphone (recherche récursive)." : "Visualisez toutes les images du dossier actuel.";
+    titleEl.textContent = recursive ? "Galerie Globale" : "Galerie Photos";
+    descEl.textContent = recursive ? "Toutes les images du téléphone." : "Images du dossier actuel.";
 
     try {
-        const url = isGlobal
+        const url = recursive
             ? `${CONFIG.endpoints.files}?path=&recursive=true`
             : `${CONFIG.endpoints.files}?path=${encodeURIComponent(path)}`;
 
         const res = await fetch(url);
         const files = await res.json();
 
-        // Si c'est global, le backend renvoie déjà uniquement les images si recursive=true (dans ma modif FileManager)
-        // Mais par sécurité et pour le mode local, on filtre ici aussi
-        const images = files.filter(f => !f.isDir && ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(f.name.split('.').pop().toLowerCase()));
+        galleryImages = files.filter(f => !f.isDir && ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(f.name.split('.').pop().toLowerCase()));
 
-        if (images.length === 0) {
+        if (galleryImages.length === 0) {
             gridEl.innerHTML = '';
             emptyEl.classList.remove('hidden');
             return;
         }
 
-        gridEl.innerHTML = images.map(img => `
-            <div id="gallery-img-${img.path.replace(/[/.]/g, '-')}"
+        gridEl.innerHTML = galleryImages.map((img, index) => `
+            <div data-full-path="${img.path.replace(/"/g, '&quot;')}"
                  class="aspect-square relative group overflow-hidden rounded-2xl cursor-pointer bg-gray-100 dark:bg-zinc-800 shadow-sm hover:shadow-xl transition-all"
-                 onclick="openLightbox('${CONFIG.endpoints.download}${encodeURIComponent(img.path)}', '${img.path.replace(/'/g, "\\'")}', true)">
-                <img src="${CONFIG.endpoints.download}${encodeURIComponent(img.path)}"
+                 onclick="openLightboxFromGallery(${index})">
+                <img src="${CONFIG.endpoints.thumbnail}?path=${encodeURIComponent(img.path)}"
                      alt="${img.name}"
                      loading="lazy"
                      class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
                     <p class="text-[10px] text-white font-bold truncate">${img.name}</p>
-                    <p class="text-[8px] text-gray-300 truncate">${isGlobal ? img.path : img.size}</p>
+                    <p class="text-[8px] text-gray-300 truncate">${recursive ? img.path : img.size}</p>
                 </div>
             </div>
         `).join('');
+
+        // Gérer la localisation depuis l'explorateur
+        if (targetGalleryPath) {
+            console.log("Localisation de :", targetGalleryPath);
+
+            setTimeout(() => {
+                const target = document.querySelector(`[data-full-path="${targetGalleryPath.replace(/"/g, '\\"')}"]`);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Animation d'accentuation
+                    target.style.outline = "4px solid var(--accent-color)";
+                    target.style.outlineOffset = "4px";
+                    target.style.transform = "scale(1.02)";
+
+                    setTimeout(() => {
+                        target.style.outline = "none";
+                        target.style.transform = "";
+                    }, 3000);
+                } else {
+                    console.warn("Élément non trouvé dans la galerie :", targetGalleryPath);
+                }
+                targetGalleryPath = null;
+            }, 800);
+        }
     } catch (e) {
         gridEl.innerHTML = '<div class="col-span-full py-20 text-center text-red-500 font-bold">Erreur de chargement</div>';
     }
 }
 
-function openImageChoice(path) {
-    const modal = document.getElementById('image-choice-modal');
-    modal.classList.remove('hidden');
-
-    document.getElementById('choice-preview-btn').onclick = () => {
-        closeImageChoice();
-        openLightbox(`${CONFIG.endpoints.download}${encodeURIComponent(path)}`, path, false);
-    };
-
-    document.getElementById('choice-gallery-btn').onclick = () => {
-        closeImageChoice();
-        switchSection('gallery');
-        // On attend que la galerie charge puis on scrolle vers l'image si possible
-        setTimeout(() => {
-            const target = document.getElementById(`gallery-img-${path.replace(/[/.]/g, '-')}`);
-            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 800);
-    };
+function locateInGallery(path) {
+    targetGalleryPath = path;
+    switchSection('gallery');
 }
 
-function closeImageChoice() {
-    document.getElementById('image-choice-modal').classList.add('hidden');
+function openLightboxFromGallery(index) {
+    currentLightboxIndex = index;
+    const img = galleryImages[index];
+    openLightbox(`${CONFIG.endpoints.download}${encodeURIComponent(img.path)}`, img.path, true);
+}
+
+function navigateLightbox(direction) {
+    if (galleryImages.length === 0) return;
+
+    currentLightboxIndex += direction;
+    if (currentLightboxIndex >= galleryImages.length) currentLightboxIndex = 0;
+    if (currentLightboxIndex < 0) currentLightboxIndex = galleryImages.length - 1;
+
+    const imgData = galleryImages[currentLightboxIndex];
+
+    // Animation fade simple
+    const lbImg = document.getElementById('lightbox-img');
+    lbImg.style.opacity = '0';
+
+    setTimeout(() => {
+        openLightbox(`${CONFIG.endpoints.download}${encodeURIComponent(imgData.path)}`, imgData.path, true);
+        lbImg.style.opacity = '1';
+    }, 200);
 }
 
 function openLightbox(url, path, showGoto) {
     const lb = document.getElementById('lightbox');
     const img = document.getElementById('lightbox-img');
+    const caption = document.getElementById('lightbox-caption');
     const gotoBtn = document.getElementById('lightbox-goto-btn');
+    const nextBtn = document.getElementById('lb-next');
+    const prevBtn = document.getElementById('lb-prev');
 
     img.src = url;
+    if (caption) caption.textContent = path.split('/').pop();
+
+    // Navigation visibility
+    const isGalleryContext = galleryImages.length > 1 && showGoto;
+    if (nextBtn) nextBtn.classList.toggle('hidden', !isGalleryContext);
+    if (prevBtn) prevBtn.classList.toggle('hidden', !isGalleryContext);
 
     // Afficher ou masquer le bouton selon le contexte
     if (gotoBtn) {
@@ -502,7 +574,7 @@ function openLightbox(url, path, showGoto) {
     if (showGoto && gotoBtn) {
         gotoBtn.onclick = () => {
             const parts = path.split('/');
-            parts.pop(); // Retirer le nom du fichier pour avoir le dossier
+            parts.pop();
             const folderPath = parts.join('/');
 
             closeLightbox();
@@ -513,6 +585,15 @@ function openLightbox(url, path, showGoto) {
 
     lb.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+
+    // Support clavier
+    document.onkeydown = (e) => {
+        if (e.key === "Escape") closeLightbox();
+        if (isGalleryContext) {
+            if (e.key === "ArrowRight") navigateLightbox(1);
+            if (e.key === "ArrowLeft") navigateLightbox(-1);
+        }
+    };
 }
 
 function closeLightbox() {
