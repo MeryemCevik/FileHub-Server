@@ -48,10 +48,17 @@ window.onload = initApp;
  */
 async function loadFiles(path, pushState = true) {
     currentPath = path;
-    // selectedPaths.clear(); // SUPPRIMÉ : On ne vide plus la sélection en changeant de dossier !
     updateToolbarState();
 
     if (pushState) history.pushState({ path: path }, "", "");
+
+    const isGalleryVisible = !document.getElementById('section-gallery').classList.contains('hidden');
+
+    if (isGalleryVisible) {
+        loadGallery(path);
+        updateBreadcrumb(path); // Update breadcrumb even in gallery
+        return;
+    }
 
     const fileListEl = document.getElementById('file-list');
     const emptyStateEl = document.getElementById('empty-state');
@@ -92,9 +99,9 @@ function renderFileList(files) {
     emptyStateEl.classList.add('hidden');
 
     fileListEl.innerHTML = files.map(file => {
+        const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(file.name.split('.').pop().toLowerCase()) && !file.isDir;
         const icon = getFileIcon(file);
         const iconClass = file.isDir ? 'bg-green-100 text-green-700' : getIconBgClass(file.name);
-        // Vérifie si le fichier est déjà dans notre sélection globale
         const isChecked = selectedPaths.has(file.path);
 
         return `
@@ -119,13 +126,15 @@ function renderFileList(files) {
             <div class="hidden md:block md:col-span-3 text-right text-sm text-secondary font-medium">${file.isDir ? 'Dossier' : file.size}</div>
 
             <div class="col-span-4 md:col-span-3 text-right flex items-center justify-end space-x-2">
-                <button onclick="event.stopPropagation(); openRenameModal('${file.path.replace(/'/g, "\\'")}', '${file.name.replace(/'/g, "\\'")}')"
-                        class="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
-                        title="Renommer">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                    </svg>
-                </button>
+                ${isImage ? `
+                    <button onclick="event.stopPropagation(); openImageChoice('${file.path.replace(/'/g, "\\'")}')"
+                            class="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
+                            title="Options galerie">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
+                ` : ''}
                 <span class="text-gray-300 group-hover:text-accent">→</span>
             </div>
         </div>
@@ -168,6 +177,7 @@ function toggleSelectAll() {
 
 function updateToolbarState() {
     const hasSelection = selectedPaths.size > 0;
+    const isSingleSelection = selectedPaths.size === 1;
     const selectBtnText = document.querySelector('#btn-select-all span');
 
     // On calcule si tous les fichiers du dossier ACTUEL sont cochés
@@ -181,9 +191,11 @@ function updateToolbarState() {
 
     const deleteBtn = document.getElementById('bulk-delete');
     const downloadBtn = document.getElementById('bulk-download');
+    const renameBtn = document.getElementById('bulk-rename');
 
     if (deleteBtn) deleteBtn.classList.toggle('hidden', !hasSelection);
     if (downloadBtn) downloadBtn.classList.toggle('hidden', !hasSelection);
+    if (renameBtn) renameBtn.classList.toggle('hidden', !isSingleSelection);
 }
 
 /**
@@ -232,6 +244,15 @@ async function createNewFolder() {
 /**
  * RENOMMAGE
  */
+function renameSelected() {
+    if (selectedPaths.size !== 1) return;
+
+    const path = Array.from(selectedPaths)[0];
+    const name = path.split('/').pop();
+
+    openRenameModal(path, name);
+}
+
 function openRenameModal(path, name) {
     renameTarget = path;
     const modal = document.getElementById('rename-modal');
@@ -374,10 +395,127 @@ function toggleTheme() {
 }
 
 function switchSection(id) {
-    ['explorer', 'about'].forEach(s => {
+    ['explorer', 'gallery', 'about'].forEach(s => {
         document.getElementById('section-' + s).classList.add('hidden');
         document.getElementById('nav-' + s).classList.remove('active');
     });
     document.getElementById('section-' + id).classList.remove('hidden');
     document.getElementById('nav-' + id).classList.add('active');
+
+    // Hide/Show breadcrumb for About section
+    document.getElementById('breadcrumb').classList.toggle('hidden', id === 'about');
+
+    if (id === 'gallery') loadGallery(currentPath);
+    if (id === 'explorer') loadFiles(currentPath, false);
+}
+
+/**
+ * GALERIE PHOTOS
+ */
+async function loadGallery(path) {
+    const gridEl = document.getElementById('gallery-grid');
+    const emptyEl = document.getElementById('gallery-empty');
+    const titleEl = document.querySelector('#section-gallery h2');
+    const descEl = document.querySelector('#section-gallery p');
+
+    gridEl.innerHTML = '<div class="col-span-full py-20 text-center"><div class="inline-block loader rounded-full h-10 w-10 border-4 border-gray-200 border-t-accent mb-4"></div><p class="text-secondary">Scan des images...</p></div>';
+    emptyEl.classList.add('hidden');
+
+    const isGlobal = path === '';
+    titleEl.textContent = isGlobal ? "Galerie Globale" : "Galerie Photos";
+    descEl.textContent = isGlobal ? "Affichage de toutes les images du téléphone (recherche récursive)." : "Visualisez toutes les images du dossier actuel.";
+
+    try {
+        const url = isGlobal
+            ? `${CONFIG.endpoints.files}?path=&recursive=true`
+            : `${CONFIG.endpoints.files}?path=${encodeURIComponent(path)}`;
+
+        const res = await fetch(url);
+        const files = await res.json();
+
+        // Si c'est global, le backend renvoie déjà uniquement les images si recursive=true (dans ma modif FileManager)
+        // Mais par sécurité et pour le mode local, on filtre ici aussi
+        const images = files.filter(f => !f.isDir && ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(f.name.split('.').pop().toLowerCase()));
+
+        if (images.length === 0) {
+            gridEl.innerHTML = '';
+            emptyEl.classList.remove('hidden');
+            return;
+        }
+
+        gridEl.innerHTML = images.map(img => `
+            <div id="gallery-img-${img.path.replace(/[/.]/g, '-')}"
+                 class="aspect-square relative group overflow-hidden rounded-2xl cursor-pointer bg-gray-100 dark:bg-zinc-800 shadow-sm hover:shadow-xl transition-all"
+                 onclick="openLightbox('${CONFIG.endpoints.download}${encodeURIComponent(img.path)}', '${img.path.replace(/'/g, "\\'")}', true)">
+                <img src="${CONFIG.endpoints.download}${encodeURIComponent(img.path)}"
+                     alt="${img.name}"
+                     loading="lazy"
+                     class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
+                    <p class="text-[10px] text-white font-bold truncate">${img.name}</p>
+                    <p class="text-[8px] text-gray-300 truncate">${isGlobal ? img.path : img.size}</p>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        gridEl.innerHTML = '<div class="col-span-full py-20 text-center text-red-500 font-bold">Erreur de chargement</div>';
+    }
+}
+
+function openImageChoice(path) {
+    const modal = document.getElementById('image-choice-modal');
+    modal.classList.remove('hidden');
+
+    document.getElementById('choice-preview-btn').onclick = () => {
+        closeImageChoice();
+        openLightbox(`${CONFIG.endpoints.download}${encodeURIComponent(path)}`, path, false);
+    };
+
+    document.getElementById('choice-gallery-btn').onclick = () => {
+        closeImageChoice();
+        switchSection('gallery');
+        // On attend que la galerie charge puis on scrolle vers l'image si possible
+        setTimeout(() => {
+            const target = document.getElementById(`gallery-img-${path.replace(/[/.]/g, '-')}`);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 800);
+    };
+}
+
+function closeImageChoice() {
+    document.getElementById('image-choice-modal').classList.add('hidden');
+}
+
+function openLightbox(url, path, showGoto) {
+    const lb = document.getElementById('lightbox');
+    const img = document.getElementById('lightbox-img');
+    const gotoBtn = document.getElementById('lightbox-goto-btn');
+
+    img.src = url;
+
+    // Afficher ou masquer le bouton selon le contexte
+    if (gotoBtn) {
+        gotoBtn.classList.toggle('hidden', !showGoto);
+    }
+
+    // Gérer la redirection vers l'emplacement du fichier
+    if (showGoto && gotoBtn) {
+        gotoBtn.onclick = () => {
+            const parts = path.split('/');
+            parts.pop(); // Retirer le nom du fichier pour avoir le dossier
+            const folderPath = parts.join('/');
+
+            closeLightbox();
+            switchSection('explorer');
+            loadFiles(folderPath);
+        };
+    }
+
+    lb.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+    document.getElementById('lightbox').classList.add('hidden');
+    document.body.style.overflow = '';
 }

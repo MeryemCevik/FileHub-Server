@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -76,34 +77,72 @@ public class FileManager {
     }
 
     public String getFileListJson(String relativePath) {
+        return getFileListJson(relativePath, false);
+    }
+
+    public String getFileListJson(String relativePath, boolean recursiveImagesOnly) {
         File targetDir = new File(rootPath, relativePath);
         if (!targetDir.exists() || !targetDir.isDirectory()) return "[]";
 
-        File[] files = targetDir.listFiles();
         StringBuilder json = new StringBuilder("[");
-        if (files != null) {
-            Arrays.sort(files, (f1, f2) -> {
-                if (f1.isDirectory() && !f2.isDirectory()) return -1;
-                if (!f1.isDirectory() && f2.isDirectory()) return 1;
-                return f1.getName().compareToIgnoreCase(f2.getName());
-            });
+        if (recursiveImagesOnly) {
+            List<File> allImages = new ArrayList<>();
+            findImagesRecursive(targetDir, allImages);
+            for (int i = 0; i < allImages.size(); i++) {
+                File f = allImages.get(i);
+                String fullPath = f.getAbsolutePath();
+                String relPath = fullPath.substring(new File(rootPath).getAbsolutePath().length());
+                if (relPath.startsWith(File.separator)) relPath = relPath.substring(1);
+                relPath = relPath.replace(File.separatorChar, '/');
 
-            for (int i = 0; i < files.length; i++) {
-                File f = files[i];
-                boolean isDir = f.isDirectory();
-                String path = relativePath.isEmpty() ? f.getName() : relativePath + "/" + f.getName();
-                
-                json.append("{");
-                json.append("\"name\":\"").append(f.getName()).append("\",");
-                json.append("\"isDir\":").append(isDir).append(",");
-                json.append("\"path\":\"").append(path).append("\",");
-                json.append("\"size\":\"").append(isDir ? "--" : formatSize(f.length()));
-                json.append("\"}");
-                if (i < files.length - 1) json.append(",");
+                appendFileJson(json, f, relPath);
+                if (i < allImages.size() - 1) json.append(",");
+            }
+        } else {
+            File[] files = targetDir.listFiles();
+            if (files != null) {
+                Arrays.sort(files, (f1, f2) -> {
+                    if (f1.isDirectory() && !f2.isDirectory()) return -1;
+                    if (!f1.isDirectory() && f2.isDirectory()) return 1;
+                    return f1.getName().compareToIgnoreCase(f2.getName());
+                });
+
+                for (int i = 0; i < files.length; i++) {
+                    File f = files[i];
+                    String path = relativePath.isEmpty() ? f.getName() : relativePath + "/" + f.getName();
+                    appendFileJson(json, f, path);
+                    if (i < files.length - 1) json.append(",");
+                }
             }
         }
         json.append("]");
         return json.toString();
+    }
+
+    private void findImagesRecursive(File dir, List<File> result) {
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            if (f.isDirectory()) {
+                findImagesRecursive(f, result);
+            } else {
+                String name = f.getName().toLowerCase();
+                if (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || 
+                    name.endsWith(".webp") || name.endsWith(".gif")) {
+                    result.add(f);
+                }
+            }
+        }
+    }
+
+    private void appendFileJson(StringBuilder json, File f, String path) {
+        boolean isDir = f.isDirectory();
+        json.append("{");
+        json.append("\"name\":\"").append(f.getName()).append("\",");
+        json.append("\"isDir\":").append(isDir).append(",");
+        json.append("\"path\":\"").append(path).append("\",");
+        json.append("\"size\":\"").append(isDir ? "--" : formatSize(f.length()));
+        json.append("\"}");
     }
 
     public boolean saveFile(String targetRelativePath, String fileName, File tempFile) {

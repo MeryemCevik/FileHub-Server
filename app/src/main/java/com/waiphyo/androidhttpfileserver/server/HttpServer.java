@@ -65,7 +65,8 @@ public class HttpServer extends NanoHTTPD {
 
             if ("/api/files".equals(uri)) {
                 String path = session.getParameters().get("path") != null ? session.getParameters().get("path").get(0) : "";
-                return newFixedLengthResponse(Response.Status.OK, "application/json", fileManager.getFileListJson(path));
+                boolean recursive = session.getParameters().get("recursive") != null && "true".equals(session.getParameters().get("recursive").get(0));
+                return newFixedLengthResponse(Response.Status.OK, "application/json", fileManager.getFileListJson(path, recursive));
             }
 
             if ("/api/delete".equals(uri)) {

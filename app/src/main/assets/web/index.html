@@ -51,6 +51,21 @@
             <span>Explorateur de fichiers</span>
         </div>
 
+        <div id="nav-gallery"
+             class="sidebar-item p-3 flex items-center space-x-3"
+             onclick="switchSection('gallery')">
+
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
+                </path>
+            </svg>
+
+            <span>Galerie</span>
+        </div>
+
         <div id="nav-about"
              class="sidebar-item p-3 flex items-center space-x-3"
              onclick="switchSection('about')">
@@ -149,6 +164,7 @@
         <h3 class="text-xl font-black text-primary mb-2 uppercase tracking-tight">Renommer l'élément</h3>
         <p class="text-xs text-secondary mb-6">Modifier le nom du fichier ou du dossier.</p>
 
+        <label for="rename-input" class="hidden">Nouveau nom</label>
         <input type="text" id="rename-input"
                class="w-full bg-gray-100 dark:bg-zinc-800 border-none rounded-xl p-4 text-primary font-bold mb-6 focus:ring-2 focus:ring-blue-500 outline-none"
                placeholder="Nouveau nom">
@@ -166,9 +182,52 @@
     </div>
 </div>
 
+<!-- LIGHTBOX -->
+<div id="lightbox" class="fixed inset-0 bg-black/95 backdrop-blur-sm z-[100] hidden flex flex-col items-center justify-center p-4 lg:p-12" onclick="closeLightbox()">
+    <button class="absolute top-6 right-6 text-white hover:text-gray-300 transition-all">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+    </button>
+
+    <div class="relative flex-grow flex items-center justify-center w-full overflow-hidden">
+        <img id="lightbox-img" src="" alt="Aperçu" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onclick="event.stopPropagation()">
+    </div>
+
+    <div class="mt-8 pb-4" onclick="event.stopPropagation()">
+        <button id="lightbox-goto-btn" class="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-8 py-4 rounded-2xl font-bold flex items-center space-x-3 transition-all border border-white/10 group">
+             <svg class="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+             </svg>
+             <span class="uppercase text-xs tracking-widest">Aller à l'emplacement du fichier</span>
+        </button>
+    </div>
+</div>
+
+<!-- IMAGE CHOICE MODAL -->
+<div id="image-choice-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="closeImageChoice()">
+    <div class="bg-white dark:bg-zinc-900 w-full max-w-xs p-6 rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10" onclick="event.stopPropagation()">
+        <h3 class="text-sm font-black text-primary mb-6 uppercase tracking-widest text-center">Options d'image</h3>
+        <div class="space-y-3">
+            <button id="choice-preview-btn" class="w-full p-4 bg-accent/10 text-accent rounded-2xl font-bold flex items-center justify-center space-x-3 hover:bg-accent/20 transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                <span>Aperçu direct</span>
+            </button>
+            <button id="choice-gallery-btn" class="w-full p-4 bg-blue-500/10 text-blue-600 rounded-2xl font-bold flex items-center justify-center space-x-3 hover:bg-blue-500/20 transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <span>Voir en Galerie</span>
+            </button>
+            <button onclick="closeImageChoice()" class="w-full p-4 text-secondary font-bold text-xs uppercase tracking-widest pt-4">Annuler</button>
+        </div>
+    </div>
+</div>
+
 <!-- MAIN -->
 
 <div class="flex-grow p-6 md:p-12 overflow-y-auto">
+
+    <nav class="flex text-sm font-medium text-secondary mb-10 max-w-5xl mx-auto" id="breadcrumb">
+    </nav>
 
     <!-- EXPLORER -->
 
@@ -178,10 +237,6 @@
             <h2 class="text-3xl font-extrabold mb-2 text-primary">
                 Explorateur
             </h2>
-
-            <nav class="flex text-sm font-medium text-secondary mb-6"
-                 id="breadcrumb">
-            </nav>
 
             <div class="flex items-center space-x-2">
                 <!-- BOUTON TOUT SÉLECTIONNER -->
@@ -213,6 +268,15 @@
                     </svg>
                 </button>
 
+                <!-- BOUTON RENOMMER -->
+                <button id="bulk-rename" onclick="renameSelected()"
+                        title="Renommer l'élément sélectionné"
+                        class="hidden p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                    </svg>
+                </button>
+
                 <!-- BOUTON SUPPRIMER -->
                 <button id="bulk-delete" onclick="deleteSelected()"
                         title="Supprimer la sélection"
@@ -229,6 +293,15 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
+                </button>
+
+                <button onclick="switchSection('gallery')"
+                        title="Voir ce dossier en mode galerie"
+                        class="p-2 soft-bg text-secondary rounded-lg hover:text-accent transition-all flex items-center space-x-2 text-xs font-bold uppercase tracking-wider">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="hidden sm:inline">Vue Galerie</span>
                 </button>
             </div>
         </header>
@@ -286,6 +359,27 @@
 
         </div>
 
+    </section>
+
+    <!-- GALLERY -->
+
+    <section id="section-gallery" class="hidden max-w-6xl mx-auto">
+        <header class="mb-8">
+            <h2 class="text-3xl font-extrabold mb-2 text-primary">Galerie Photos</h2>
+            <p class="text-secondary text-sm">Visualisez toutes les images du dossier actuel.</p>
+        </header>
+
+        <div id="gallery-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <!-- Les images seront injectées ici -->
+        </div>
+
+        <div id="gallery-empty" class="hidden py-32 text-center text-secondary">
+            <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            <h3 class="text-lg font-bold mb-1 text-primary">Aucune image</h3>
+            <p class="text-sm text-secondary">Aucun fichier image trouvé dans ce dossier.</p>
+        </div>
     </section>
 
     <!-- ABOUT -->
