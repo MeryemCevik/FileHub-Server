@@ -236,7 +236,7 @@ public class FileManager {
     }
 
     public boolean renameItem(String oldRelativePath, String newName) {
-        // Validation du nouveau nom
+        // Validation du nouveau nom (pas vide et pas de caractères interdits)
         if (newName == null || newName.trim().isEmpty() || newName.contains("/") || newName.contains("\\")) {
             return false;
         }
@@ -246,15 +246,9 @@ public class FileManager {
             return false;
         }
 
-        // Extraction du répertoire parent
-        String parentPath = "";
-        int lastSeparator = oldRelativePath.lastIndexOf('/');
-        if (lastSeparator > 0) {
-            parentPath = oldRelativePath.substring(0, lastSeparator);
-        }
-
-        // Création du nouveau chemin
-        File newFile = new File(rootPath, parentPath.isEmpty() ? newName : parentPath + "/" + newName);
+        // On utilise getParentFile pour être sûr de rester dans le même dossier
+        File parentDir = oldFile.getParentFile();
+        File newFile = new File(parentDir, newName);
 
         // Vérification que le nouveau nom n'existe pas déjà
         if (newFile.exists()) {
@@ -262,7 +256,11 @@ public class FileManager {
         }
 
         // Effectuer le renommage
-        return oldFile.renameTo(newFile);
+        boolean success = oldFile.renameTo(newFile);
+        
+        // Si c'est un fichier, on peut essayer de forcer la mise à jour pour Android (MediaScanner)
+        // Mais renameTo suffit généralement pour le système de fichiers
+        return success;
     }
 
     public File getFile(String relativePath) {
