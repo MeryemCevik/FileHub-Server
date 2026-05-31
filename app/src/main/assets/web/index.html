@@ -432,59 +432,121 @@
     <!-- ABOUT -->
 
     <section id="section-about"
-             class="hidden max-w-2xl mx-auto">
+             class="hidden max-w-5xl mx-auto space-y-10 pb-24">
 
-        <h2 class="text-3xl font-extrabold mb-8 text-primary">
-            À propos
-        </h2>
+        <!-- CARTE PRINCIPALE : TITRE ET PRÉSENTATION DANS LA MÊME CASE -->
+        <div class="card p-10 md:p-16 relative overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-zinc-900 dark:to-zinc-950 shadow-2xl border-none">
 
-        <div class="card p-8 text-center">
-
-            <div class="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
-                <img src="logo.png"
-                     alt="Logo"
-                     class="w-20 h-20 object-cover">
-            </div>
-
-            <h3 class="text-2xl font-bold mb-2 text-primary">
-                FileHub v2.2
-            </h3>
-
-            <p class="text-secondary mb-8">
-                Un serveur de fichiers HTTP léger et moderne pour Android.
-            </p>
-
-            <div class="grid grid-cols-2 gap-4 text-left">
-
-                <div class="p-4 soft-bg rounded-xl">
-
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-secondary mb-1">
-                        Architecture
-                    </p>
-
-                    <p class="text-sm font-semibold text-primary">
-                        MVVM + Compose
-                    </p>
-
+            <div class="flex flex-col lg:flex-row items-center gap-14">
+                <!-- LOGO -->
+                <div class="w-40 h-40 rounded-[3rem] shadow-2xl shadow-accent/20 overflow-hidden border-4 border-white dark:border-zinc-800 flex-shrink-0">
+                    <img src="logo.png" alt="Logo" class="w-full h-full object-cover">
                 </div>
 
-                <div class="p-4 soft-bg rounded-xl">
-
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-secondary mb-1">
-                        Moteur
+                <div class="flex-1 text-center lg:text-left">
+                    <!-- TITRE DANS LA CASE -->
+                    <h2 class="text-7xl font-black text-primary tracking-tighter uppercase mb-4 leading-none">
+                        File<span class="text-accent">Hub</span>
+                    </h2>
+                    <p class="text-secondary text-lg leading-relaxed mb-8 font-medium">
+                        Une fusion entre puissance native Android et flexibilité Web. Cet écosystème garantit une confidentialité totale et une gestion de fichiers ultra-rapide sur réseau local.
                     </p>
 
-                    <p class="text-sm font-semibold text-primary">
-                        NanoHTTPD 2.3
-                    </p>
-
+                    <!-- GRILLE DES TECHNOLOGIES -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="p-4 bg-white/50 dark:bg-black/20 rounded-2xl border border-slate-100 dark:border-white/5">
+                            <p class="text-[9px] font-black uppercase tracking-widest text-blue-500 mb-1">Android Native</p>
+                            <p class="text-xs font-bold text-primary">Kotlin & Compose</p>
+                        </div>
+                        <div class="p-4 bg-white/50 dark:bg-black/20 rounded-2xl border border-slate-100 dark:border-white/5">
+                            <p class="text-[9px] font-black uppercase tracking-widest text-emerald-500 mb-1">Backend Server</p>
+                            <p class="text-xs font-bold text-primary">Java & NanoHTTPD</p>
+                        </div>
+                        <div class="p-4 bg-white/50 dark:bg-black/20 rounded-2xl border border-slate-100 dark:border-white/5">
+                            <p class="text-[9px] font-black uppercase tracking-widest text-amber-500 mb-1">Frontend UI</p>
+                            <p class="text-xs font-bold text-primary">JS ES6+ & Fetch</p>
+                        </div>
+                        <div class="p-4 bg-white/50 dark:bg-black/20 rounded-2xl border border-slate-100 dark:border-white/5">
+                            <p class="text-[9px] font-black uppercase tracking-widest text-violet-500 mb-1">Styling Engine</p>
+                            <p class="text-xs font-bold text-primary">Tailwind CSS</p>
+                        </div>
+                    </div>
                 </div>
+            </div>
+        </div>
 
+        <!-- SECTION FONCTIONNALITÉS DÉTAILLÉES -->
+        <div class="grid md:grid-cols-2 gap-8">
+            <div class="card p-8">
+                <h4 class="text-sm font-black uppercase tracking-widest text-accent mb-6 flex items-center">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    Cœur du système
+                </h4>
+                <ul class="space-y-4">
+                    <li class="flex items-start">
+                        <span class="text-accent mr-3 mt-1">●</span>
+                        <p class="text-sm text-secondary"><span class="font-bold text-primary">Explorateur Intelligent :</span> Navigation fluide avec filtrage instantané et gestion des permissions Scoped Storage.</p>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-accent mr-3 mt-1">●</span>
+                        <p class="text-sm text-secondary"><span class="font-bold text-primary">Streaming ZIP :</span> Compression et téléchargement de dossiers entiers en flux continu sans saturer la mémoire.</p>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-accent mr-3 mt-1">●</span>
+                        <p class="text-sm text-secondary"><span class="font-bold text-primary">Multi-Upload :</span> Envoi simultané de plusieurs fichiers avec suivi de progression en temps réel.</p>
+                    </li>
+                </ul>
             </div>
 
+            <div class="card p-8">
+                <h4 class="text-sm font-black uppercase tracking-widest text-amber-500 mb-6 flex items-center">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    Outils avancés
+                </h4>
+                <ul class="space-y-4">
+                    <li class="flex items-start">
+                        <span class="text-amber-500 mr-3 mt-1">●</span>
+                        <p class="text-sm text-secondary"><span class="font-bold text-primary">Éditeur Haute Fidélité :</span> Modification de code et texte avec lecture binaire brute pour préserver 100% des caractères.</p>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-amber-500 mr-3 mt-1">●</span>
+                        <p class="text-sm text-secondary"><span class="font-bold text-primary">Galerie Multimédia :</span> Moteur de miniatures optimisé côté serveur pour un affichage rapide des photos HD.</p>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-amber-500 mr-3 mt-1">●</span>
+                        <p class="text-sm text-secondary"><span class="font-bold text-primary">Sécurité Localhost :</span> Aucune donnée ne transite par Internet. Tout reste entre votre téléphone et votre ordinateur.</p>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- CRÉDITS ET AUTEURS -->
+        <div class="card p-10 bg-white dark:bg-zinc-900">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-10">
+                <div class="text-center md:text-left space-y-4">
+                    <h4 class="text-2xl font-black text-primary tracking-tight italic">Concepteurs du Projet</h4>
+                    <div class="flex flex-wrap justify-center md:justify-start gap-4">
+                        <div class="px-6 py-4 bg-gray-50 dark:bg-zinc-800 rounded-2xl shadow-sm border border-slate-100 dark:border-white/5 flex items-center space-x-4">
+                            <div class="w-10 h-10 bg-accent text-white rounded-full flex items-center justify-center font-black text-sm">MC</div>
+                            <span class="text-lg font-bold text-primary">Meryem Cevik</span>
+                        </div>
+                        <div class="px-6 py-4 bg-gray-50 dark:bg-zinc-800 rounded-2xl shadow-sm border border-slate-100 dark:border-white/5 flex items-center space-x-4">
+                            <div class="w-10 h-10 bg-accent text-white rounded-full flex items-center justify-center font-black text-sm">HA</div>
+                            <span class="text-lg font-bold text-primary">Husna Allaoui</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center px-10 py-8 bg-accent text-white rounded-[2.5rem] shadow-xl shadow-accent/30">
+                    <p class="text-[10px] font-black uppercase tracking-[0.4em] mb-2 opacity-80 text-white/70">Formation</p>
+                    <p class="text-2xl font-black tracking-tighter">M1 MIAGE</p>
+                    <p class="text-[12px] font-bold uppercase mt-1">Promotion 2026</p>
+                </div>
+            </div>
         </div>
 
     </section>
+
 
 </div>
 
