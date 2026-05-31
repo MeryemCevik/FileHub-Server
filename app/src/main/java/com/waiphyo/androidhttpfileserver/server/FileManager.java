@@ -1,5 +1,6 @@
 package com.waiphyo.androidhttpfileserver.server;
 
+import android.util.Log;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -274,6 +275,63 @@ public class FileManager {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public String readFileContent(String relativePath) {
+        String cleanPath = cleanPath(relativePath);
+        File file = new File(rootPath, cleanPath);
+        if (!file.exists() || !file.isFile()) {
+            Log.e("FileManager", "Fichier non trouvé: " + file.getAbsolutePath());
+            return null;
+        }
+
+        // Si le fichier est monstrueux, on prévient le front-end
+        if (file.length() > 20 * 1024 * 1024) {
+            return "ERREUR_VOLUMINEUX:" + file.length();
+        }
+
+        try {
+            // Lecture binaire brute convertie explicitement en UTF-8
+            // pour ne perdre AUCUN caractère (même les caractères invisibles)
+            byte[] bytes = new byte[(int) file.length()];
+            java.io.FileInputStream fis = new java.io.FileInputStream(file);
+            int totalRead = 0;
+            while (totalRead < bytes.length) {
+                int read = fis.read(bytes, totalRead, bytes.length - totalRead);
+                if (read == -1) break;
+                totalRead += read;
+            }
+            fis.close();
+            return new String(bytes, "UTF-8");
+        } catch (Exception e) {
+            Log.e("FileManager", "Erreur lecture binaire: " + e.getMessage());
+            return null;
+        }
+    }
+
+    public boolean writeFileContent(String relativePath, String content) {
+        String cleanPath = cleanPath(relativePath);
+        File file = new File(rootPath, cleanPath);
+        if (!file.exists() || !file.isFile()) return false;
+
+        try {
+            java.io.OutputStreamWriter writer = new java.io.OutputStreamWriter(new java.io.FileOutputStream(file), "UTF-8");
+            writer.write(content);
+            writer.close();
+            return true;
+        } catch (Exception e) {
+            Log.e("FileManager", "Erreur écriture: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private String cleanPath(String path) {
+        if (path == null) return "";
+        String clean = path;
+        while (clean.startsWith("/") || clean.startsWith("\\")) {
+            clean = clean.substring(1);
+        }
+        return clean;
     }
 
     public File getFile(String relativePath) {

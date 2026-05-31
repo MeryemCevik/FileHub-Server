@@ -116,7 +116,7 @@ public class HttpServer extends NanoHTTPD {
                     }
                 }
                 // Fallback vers l'image originale si erreur ou pas image
-                return serve(session); // Re-routé vers download ou 404
+                return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Miniature non disponible");
             }
 
             if ("/api/zip".equals(uri)) {
@@ -139,6 +139,31 @@ public class HttpServer extends NanoHTTPD {
                 Response res = newChunkedResponse(Response.Status.OK, "application/zip", pis);
                 res.addHeader("Content-Disposition", "attachment; filename=\"archive_filehub.zip\"");
                 return res;
+            }
+
+            if ("/api/read".equals(uri)) {
+                String path = session.getParameters().get("path") != null ? session.getParameters().get("path").get(0) : "";
+                String content = fileManager.readFileContent(path);
+                if (content != null) {
+                    return newFixedLengthResponse(Response.Status.OK, "text/plain", content);
+                }
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur lecture fichier");
+            }
+
+            if ("/api/save".equals(uri) && method == Method.POST) {
+                String path = session.getParameters().get("path") != null ? session.getParameters().get("path").get(0) : "";
+                Map<String, String> files = new HashMap<>();
+                session.parseBody(files);
+                String content = files.get("postData");
+                
+                if (path.isEmpty() || content == null) {
+                    return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Paramètres manquants");
+                }
+
+                if (fileManager.writeFileContent(path, content)) {
+                    return newFixedLengthResponse(Response.Status.OK, "text/plain", "OK");
+                }
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Erreur sauvegarde fichier");
             }
 
             // GESTION DE L'UPLOAD

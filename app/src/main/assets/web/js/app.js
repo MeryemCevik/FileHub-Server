@@ -11,7 +11,9 @@ const CONFIG = {
         upload: '/api/upload',   // Envoi de fichiers
         thumbnail: '/api/thumbnail', // Miniatures
         zip: '/api/zip',         // Téléchargement groupé (ZIP)
-        rename: '/api/rename'    // Renommer
+        rename: '/api/rename',   // Renommer
+        read: '/api/read',       // Lecture fichier texte
+        save: '/api/save'        // Sauvegarde fichier texte
     }
 };
 
@@ -24,6 +26,7 @@ let uploadQueue = [];
 let isUploading = false;
 let renameTarget = null;
 let targetGalleryPath = null;
+let editorTarget = null; // Fichier en cours d'édition
 
 // Galerie & Lightbox
 let galleryImages = [];
@@ -105,7 +108,9 @@ function renderFileList(files) {
     emptyStateEl.classList.add('hidden');
 
     fileListEl.innerHTML = files.map(file => {
-        const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(file.name.split('.').pop().toLowerCase()) && !file.isDir;
+        const ext = file.name.split('.').pop().toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext) && !file.isDir;
+        const isText = ['txt', 'html', 'css', 'js', 'json', 'xml', 'md', 'php', 'py', 'java', 'kt', 'sql'].includes(ext) && !file.isDir;
         const icon = getFileIcon(file);
         const iconClass = file.isDir ? 'bg-green-100 text-green-700' : getIconBgClass(file.name);
         const isChecked = selectedPaths.has(file.path);
@@ -138,6 +143,15 @@ function renderFileList(files) {
                             title="Localiser en Galerie">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
+                ` : ''}
+                ${isText ? `
+                    <button onclick="event.stopPropagation(); openEditor('${file.path.replace(/'/g, "\\'")}', '${file.name.replace(/'/g, "\\'")}')"
+                            class="p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all"
+                            title="Modifier le fichier">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                         </svg>
                     </button>
                 ` : ''}
@@ -246,6 +260,143 @@ async function createNewFolder() {
     const res = await fetch(`${CONFIG.endpoints.mkdir}?parentPath=${encodeURIComponent(currentPath)}&name=${encodeURIComponent(name)}`, { method: 'POST' });
     if (res.ok) loadFiles(currentPath, false);
 }
+
+/**
+ * ÉDITEUR DE TEXTE PRO (FULLSCREEN OVERLAY)
+ */
+async function openEditor(path, fileName) {
+    editorTarget = path;
+
+    // On ajoute un état dans l'historique pour gérer le bouton retour du téléphone
+    history.pushState({ editing: true, path: currentPath }, "", "");
+
+    const overlay = document.getElementById('editor-overlay');
+    const textarea = document.getElementById('editor-overlay-textarea');
+    const filenameEl = document.getElementById('editor-overlay-filename');
+    const saveBtn = document.getElementById('editor-overlay-save-btn');
+    const statusDot = document.getElementById('editor-overlay-status-dot');
+    const statusText = document.getElementById('editor-overlay-status-text');
+    const sizeEl = document.getElementById('editor-info-size');
+
+    overlay.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    filenameEl.textContent = fileName;
+    textarea.value = "Chargement sécurisé du fichier...";
+    textarea.readOnly = true;
+    saveBtn.disabled = true;
+    saveBtn.style.opacity = '0.5';
+    statusDot.className = "w-2 h-2 rounded-full bg-amber-500 animate-pulse";
+    statusText.textContent = "Chargement...";
+
+    try {
+        const res = await fetch(`${CONFIG.endpoints.read}?path=${encodeURIComponent(path)}`);
+        if (res.ok) {
+            const content = await res.text();
+
+            if (content.startsWith("ERREUR_VOLUMINEUX:")) {
+                const size = parseInt(content.split(":")[1]);
+                sizeEl.textContent = (size / 1024).toFixed(2) + " KB";
+                textarea.value = "CE FICHIER EST TROP VOLUMINEUX (> 20 Mo).\n\n" +
+                               "L'édition directe est désactivée pour préserver la stabilité du navigateur.";
+                statusDot.className = "w-2 h-2 rounded-full bg-red-500";
+                statusText.textContent = "Trop volumineux";
+                return;
+            }
+
+            textarea.value = content;
+            textarea.readOnly = false;
+            saveBtn.disabled = false;
+            saveBtn.style.opacity = '1';
+            statusDot.className = "w-2 h-2 rounded-full bg-emerald-500";
+            statusText.textContent = "Enregistré";
+            sizeEl.textContent = (content.length / 1024).toFixed(2) + " KB";
+            textarea.focus();
+        } else {
+            textarea.value = "Erreur fatale lors de la lecture des caractères.";
+            statusDot.className = "w-2 h-2 rounded-full bg-red-500";
+            statusText.textContent = "Erreur";
+        }
+    } catch (e) {
+        textarea.value = "Erreur de connexion au serveur.";
+        statusDot.className = "w-2 h-2 rounded-full bg-red-500";
+    }
+}
+
+function markEditorAsUnsaved() {
+    const statusDot = document.getElementById('editor-overlay-status-dot');
+    const statusText = document.getElementById('editor-overlay-status-text');
+    if (statusDot) statusDot.className = "w-2 h-2 rounded-full bg-amber-500";
+    if (statusText) statusText.textContent = "Modifié (non enregistré)";
+}
+
+function closeEditorOverlay(isBackAction = false) {
+    const statusDot = document.getElementById('editor-overlay-status-dot');
+    if (statusDot && statusDot.classList.contains('bg-amber-500')) {
+        if (!confirm("Attention : vos modifications n'ont pas été enregistrées.\n\nVoulez-vous vraiment fermer l'éditeur ?")) return;
+    }
+
+    document.getElementById('editor-overlay').classList.add('hidden');
+    document.body.style.overflow = '';
+    editorTarget = null;
+
+    // Si on a cliqué sur le bouton "Retour" de l'UI (et pas le bouton retour physique)
+    if (!isBackAction) {
+        history.back();
+    }
+}
+
+async function saveEditorContent() {
+    if (!editorTarget) return;
+
+    const textarea = document.getElementById('editor-overlay-textarea');
+    const saveBtn = document.getElementById('editor-overlay-save-btn');
+    const statusDot = document.getElementById('editor-overlay-status-dot');
+    const statusText = document.getElementById('editor-overlay-status-text');
+    const btnSpan = saveBtn.querySelector('span');
+    const content = textarea.value;
+
+    saveBtn.disabled = true;
+    if (btnSpan) btnSpan.textContent = "Envoi...";
+    statusDot.className = "w-2 h-2 rounded-full bg-amber-500 animate-pulse";
+
+    try {
+        const res = await fetch(`${CONFIG.endpoints.save}?path=${encodeURIComponent(editorTarget)}`, {
+            method: 'POST',
+            body: content
+        });
+
+        if (res.ok) {
+            if (btnSpan) btnSpan.textContent = "Enregistré !";
+            statusDot.className = "w-2 h-2 rounded-full bg-emerald-500";
+            statusText.textContent = "Enregistré";
+            setTimeout(() => {
+                if (btnSpan) btnSpan.textContent = "Enregistrer";
+                saveBtn.disabled = false;
+            }, 2000);
+        } else {
+            alert("Erreur serveur lors de la sauvegarde.");
+            saveBtn.disabled = false;
+            if (btnSpan) btnSpan.textContent = "Enregistrer";
+            statusDot.className = "w-2 h-2 rounded-full bg-red-500";
+        }
+    } catch (e) {
+        alert("Erreur de connexion.");
+        saveBtn.disabled = false;
+        if (btnSpan) btnSpan.textContent = "Enregistrer";
+        statusDot.className = "w-2 h-2 rounded-full bg-red-500";
+    }
+}
+
+// Mise à jour de la gestion du bouton retour physique
+window.onpopstate = (e) => {
+    const editorOverlay = document.getElementById('editor-overlay');
+    if (editorOverlay && !editorOverlay.classList.contains('hidden')) {
+        closeEditorOverlay(true);
+    } else if (e.state) {
+        loadFiles(e.state.path, false);
+    }
+};
 
 /**
  * RENOMMAGE
@@ -420,15 +571,20 @@ function toggleTheme() {
 function switchSection(id) {
     const navItems = ['explorer', 'gallery', 'about'];
     navItems.forEach(s => {
-        document.getElementById('section-' + s).classList.add('hidden');
-        document.getElementById('nav-' + s).classList.remove('active');
+        const section = document.getElementById('section-' + s);
+        const nav = document.getElementById('nav-' + s);
+        if (section) section.classList.add('hidden');
+        if (nav) nav.classList.remove('active');
     });
 
-    document.getElementById('section-' + id).classList.remove('hidden');
-    document.getElementById('nav-' + id).classList.add('active');
+    const targetSection = document.getElementById('section-' + id);
+    const targetNav = document.getElementById('nav-' + id);
+    if (targetSection) targetSection.classList.remove('hidden');
+    if (targetNav) targetNav.classList.add('active');
 
     // Breadcrumb visibility
-    document.getElementById('breadcrumb').classList.toggle('hidden', id === 'about');
+    const breadcrumb = document.getElementById('breadcrumb');
+    if (breadcrumb) breadcrumb.classList.toggle('hidden', id === 'about');
 
     if (id === 'gallery') {
         let pathToLoad = currentPath;
