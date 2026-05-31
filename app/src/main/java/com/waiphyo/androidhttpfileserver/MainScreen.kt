@@ -1,5 +1,6 @@
 package com.waiphyo.androidhttpfileserver
 
+import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -377,23 +378,50 @@ fun AppHeader(isDarkMode: Boolean, onToggleTheme: () -> Unit) {
 }
 
 /**
- * Logo de l'application utilisant la ressource mipmap ic_launcher_foreground.
+ * Logo de l'application chargé depuis les assets (logo.png).
  */
 @Composable
 fun FileHubLogo() {
+    val context = LocalContext.current
+    val imageBitmap = remember {
+        try {
+            context.assets.open("web/logo.png").use { inputStream ->
+                BitmapFactory.decodeStream(inputStream).asImageBitmap()
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     Box(
         modifier = Modifier
             .size(40.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.primary),
+            .clip(RoundedCornerShape(10.dp)),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.CloudQueue,
-            contentDescription = "Logo FileHub",
-            tint = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier.size(24.dp)
-        )
+        if (imageBitmap != null) {
+            Image(
+                bitmap = imageBitmap,
+                contentDescription = "Logo FileHub",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            // Fallback au logo nuage si l'image est manquante
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CloudQueue,
+                    contentDescription = "Logo FileHub",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
     }
 }
 
