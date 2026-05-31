@@ -325,7 +325,7 @@ public class FileManager {
         }
     }
 
-    private String cleanPath(String path) {
+    public String cleanPath(String path) {
         if (path == null) return "";
         String clean = path;
         while (clean.startsWith("/") || clean.startsWith("\\")) {
