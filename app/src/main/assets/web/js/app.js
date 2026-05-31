@@ -59,6 +59,12 @@ async function loadFiles(path, pushState = true) {
     currentPath = path;
     updateToolbarState();
 
+    // Reset de la recherche lors d'un changement de dossier
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) searchInput.value = '';
+    const clearBtn = document.getElementById('clear-search');
+    if (clearBtn) clearBtn.classList.add('hidden');
+
     if (pushState) history.pushState({ path: path }, "", "");
 
     const isGalleryVisible = !document.getElementById('section-gallery').classList.contains('hidden');
@@ -174,6 +180,62 @@ function toggleItemSelection(checkbox) {
     else selectedPaths.delete(path);
     updateToolbarState();
 }
+
+/**
+ * FILTRAGE / RECHERCHE (Ergonomie Pro)
+ * Filtre les fichiers affichés sans requête serveur pour une vitesse instantanée.
+ */
+function filterFiles() {
+    const input = document.getElementById('search-input');
+    const query = input.value.toLowerCase().trim();
+    const clearBtn = document.getElementById('clear-search');
+    const items = document.querySelectorAll('.file-item');
+    const emptyState = document.getElementById('empty-state');
+
+    // Affichage/Masquage du bouton de reset (X)
+    if (clearBtn) clearBtn.classList.toggle('hidden', query.length === 0);
+
+    let hasVisibleItems = false;
+
+    items.forEach(item => {
+        // On récupère le nom du fichier dans le paragraphe font-bold
+        const fileName = item.querySelector('p.font-bold').textContent.toLowerCase();
+
+        if (fileName.includes(query)) {
+            item.classList.remove('hidden');
+            hasVisibleItems = true;
+        } else {
+            item.classList.add('hidden');
+        }
+    });
+
+    // Gestion de l'état vide si aucun résultat
+    if (emptyState) {
+        if (!hasVisibleItems && query.length > 0) {
+            emptyState.classList.remove('hidden');
+            emptyState.querySelector('h3').textContent = "Aucun résultat";
+            emptyState.querySelector('p').textContent = `Aucun fichier ne correspond à "${query}"`;
+        } else if (hasVisibleItems) {
+            emptyState.classList.add('hidden');
+        } else if (query.length === 0 && allFilesCount === 0) {
+            emptyState.classList.remove('hidden');
+            emptyState.querySelector('h3').textContent = "Dossier vide";
+        }
+    }
+}
+
+/**
+ * RESET DE LA RECHERCHE
+ */
+function clearSearch() {
+    const input = document.getElementById('search-input');
+    if (input) {
+        input.value = '';
+        filterFiles();
+        input.focus();
+    }
+}
+
 
 function toggleSelectAll() {
     const checkboxes = document.querySelectorAll('.item-checkbox');
