@@ -10,13 +10,17 @@ Serveur HTTP local Android permettant d’accéder et gérer les fichiers d’un
 
 ## Table des matières
 
+
 - [Présentation](#présentation)
 - [Fonctionnalités](#fonctionnalités)
 - [Charte graphique et thème](#charte-graphique-et-thème)
 - [Capture d’écran](#capture-décran)
 - [Architecture](#architecture)
-- [Utilisation](#utilisation)
-- [Installation](#installation)
+- [Installation (développement)](#installation-développement)
+- [Installation APK (recommandé)](#installation-apk-recommandé)
+- [Accès à l’interface web](#accès-à-linterface-web)
+- [Configuration du port](#configuration-du-port)
+- [Dépannage](#dépannage)
 - [Ressources](#ressources)
 
 ---
@@ -136,71 +140,112 @@ G --> H[Navigateur utilisateur]
 
 ---
 
-## Utilisation
+## Installation (développement)
 
-### Mode normal (Wi-Fi)
-
-1. Lancer l’application Android
-2. Connecter le téléphone et le PC sur le même réseau Wi-Fi
-3. Récupérer l’adresse IP affichée dans l’application
-4. Ouvrir cette adresse dans un navigateur
-5. Accéder aux fichiers du téléphone
-
-### Accès en mode développement (ADB / USB)
-
-Cette méthode permet d'accéder à un serveur lancé sur un appareil Android depuis un PC via USB.
-
-#### Prérequis
-- USB debugging activé sur le téléphone
-- ADB installé (Android SDK Platform Tools)
-- Téléphone connecté en USB
-- Application en cours d’exécution sur l’appareil
-- Le serveur écoute sur le port `8080` dans l’application
-
-#### Vérifier la connexion ADB
-Dans le terminal (Android Studio ou terminal système) :
-```bash
-adb devices
-```
-Vous devez voir votre appareil listé.
-
-
-#### Redirection du port (port forwarding)
-Toujours dans le terminal :
-```bash
-adb forward tcp:8080 tcp:8080
-```
-Cette commande redirige le port `8080` du PC vers le port `8080` du téléphone.
-
-#### Accès au serveur
-Une fois la redirection active, accéder au serveur depuis le navigateur du PC :
-```
-http://127.0.0.1:8080
+```bash id="clone01"
+git clone https://github.com/MeryemCevik/FileHub-Server.git
 ```
 
-#### Notes : 
-- L’application doit être déjà lancée sur le téléphone
-- Le serveur doit écouter sur `0.0.0.0` ou `localhost` selon la configuration
-- Si le port est déjà utilisé, changer `8080` par un autre port
-- La redirection ADB est perdue si l’appareil est déconnecté
-
----
-
-## Installation
-
-```bash
-git clone https://github.com/votre-compte/FileHub-Server.git](https://github.com/MeryemCevik/FileHub-Server.git
-```
-
-Ouvrir le projet avec Android Studio, puis synchroniser Gradle.
+Ouvrir le projet avec **Android Studio**, puis synchroniser Gradle.
 
 Lancer l’application sur un appareil Android (API 23+) ou un émulateur.
 
 ---
 
+## Installation APK (recommandé)
+
+Télécharger et installer l’APK disponible dans la section **Releases** du dépôt.
+
+Puis :
+
+* Installer l’application sur le téléphone Android
+* Connecter le téléphone et le PC sur le **même réseau Wi-Fi**
+* Lancer l’application
+* L’adresse IP du serveur s’affiche directement dans l’application
+
+---
+
+## Accès à l’interface web
+
+Une fois l’application lancée, vous pouvez accéder au serveur de plusieurs façons :
+
+### 1. Via le bouton "Ouvrir"
+Il suffit de cliquer sur ce bouton qui vous redirige vers la page web directement.
+
+---
+
+### 2. En copiant le lien
+
+L’application affiche directement l’URL complète du serveur.
+Il suffit de copier ce lien et de le coller dans un navigateur (Chrome, Edge, etc.).
+
+---
+
+### 3. Via QR code
+
+L’application génère un **QR code** contenant l’adresse du serveur.
+
+* Ouvrir l’appareil photo ou une application de scan QR
+* Scanner le code affiché dans l’application
+* Le lien s’ouvre automatiquement dans le navigateur
+
+---
+
+## Configuration du port
+
+Par défaut, le serveur utilise le port :
+
+```id="port01"
+8080
+```
+
+### Changer le port
+
+Le port peut être modifié directement depuis l’**interface de l’application** :
+
+* Ouvrir l’application
+* Aller dans les paramètres (ou écran de configuration serveur)
+* Modifier le champ **Port**
+* Redémarrer le serveur dans l’application
+
+Exemple :
+
+* Port configuré : `9090`
+
+Alors l’accès devient :
+
+```id="url02"
+http://192.168.1.25:9090
+```
+
+---
+
+## Dépannage (problèmes fréquents)
+
+### ❌ Impossible d’accéder à l’interface
+
+* Vérifier que le téléphone et le PC sont sur le **même Wi-Fi**
+* Vérifier que le serveur est bien lancé dans l’application
+* Vérifier l’adresse IP affichée (elle peut changer après redémarrage)
+
+---
+
+### ❌ La page ne charge pas
+
+* Essayer un autre navigateur
+* Désactiver VPN / proxy sur le PC
+* Vérifier que le port utilisé est bien celui affiché dans l’app
+
+---
+
+### ❌ IP change souvent
+
+* C’est normal sur certains réseaux Wi-Fi
+* Relancer l’application pour obtenir la nouvelle adresse
+
+---
+
 ## Ressources
 
-Projet basé sur :
-
-https://github.com/WPSeven/Android-Http-File-Server
-
+- Projet inspiré de : Android Http File Server
+  https://github.com/WPSeven/Android-Http-File-Server
