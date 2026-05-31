@@ -241,20 +241,27 @@ public class FileManager {
             return false;
         }
 
-        File oldFile = new File(rootPath, oldRelativePath);
+        // Nettoyage du chemin relatif pour éviter les injections de chemin
+        String cleanOldPath = oldRelativePath;
+        while (cleanOldPath.startsWith("/") || cleanOldPath.startsWith("\\")) {
+            cleanOldPath = cleanOldPath.substring(1);
+        }
+
+        File oldFile = new File(rootPath, cleanOldPath);
         if (!oldFile.exists()) {
             return false;
         }
 
-        // Extraction du répertoire parent
-        String parentPath = "";
-        int lastSeparator = oldRelativePath.lastIndexOf('/');
-        if (lastSeparator > 0) {
-            parentPath = oldRelativePath.substring(0, lastSeparator);
-        }
+        // Utilisation du répertoire parent réel pour le nouveau fichier
+        File parentFile = oldFile.getParentFile();
+        if (parentFile == null) return false;
 
-        // Création du nouveau chemin
-        File newFile = new File(rootPath, parentPath.isEmpty() ? newName : parentPath + "/" + newName);
+        File newFile = new File(parentFile, newName.trim());
+
+        // Si le nom n'a pas changé, on considère que c'est un succès
+        if (oldFile.getAbsolutePath().equals(newFile.getAbsolutePath())) {
+            return true;
+        }
 
         // Vérification que le nouveau nom n'existe pas déjà
         if (newFile.exists()) {
@@ -262,7 +269,11 @@ public class FileManager {
         }
 
         // Effectuer le renommage
-        return oldFile.renameTo(newFile);
+        try {
+            return oldFile.renameTo(newFile);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public File getFile(String relativePath) {

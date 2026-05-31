@@ -264,6 +264,7 @@ function openRenameModal(path, name) {
     const modal = document.getElementById('rename-modal');
     const input = document.getElementById('rename-input');
     input.value = name;
+    input.setAttribute('data-old-name', name);
     modal.classList.remove('hidden');
     input.focus();
     input.select();
@@ -282,8 +283,17 @@ function closeRenameModal() {
 }
 
 async function confirmRename() {
-    const newName = document.getElementById('rename-input').value.trim();
+    const input = document.getElementById('rename-input');
+    const newName = input.value.trim();
+    const oldName = input.getAttribute('data-old-name');
+
     if (!newName || !renameTarget) return;
+
+    // Si le nom n'a pas changé, on ferme juste la modale
+    if (newName === oldName) {
+        closeRenameModal();
+        return;
+    }
 
     // Validation des caractères interdits
     if (/[\\/:*?"<>|]/.test(newName)) {

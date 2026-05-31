@@ -247,7 +247,7 @@
                 <!-- BOUTON UPLOAD -->
                 <button onclick="document.getElementById('file-input').click()"
                         title="Envoyer un ou plusieurs fichiers"
-                        class="p-2 bg-blue-600 text-white rounded-lg shadow-sm hover:opacity-90 transition-all flex items-center space-x-2">
+                        class="p-2 bg-blue-600 text-white rounded-lg shadow-lg shadow-blue-500/20 hover:bg-blue-500 transition-all flex items-center space-x-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
                     </svg>
@@ -257,7 +257,7 @@
                 <!-- BOUTON AJOUTER DOSSIER -->
                 <button onclick="createNewFolder()"
                         title="Nouveau dossier"
-                        class="p-2 bg-accent text-white rounded-lg shadow-sm hover:opacity-90 transition-all">
+                        class="p-2 bg-emerald-600 text-white rounded-lg shadow-lg shadow-emerald-500/20 hover:bg-emerald-500 transition-all">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
                     </svg>
@@ -266,7 +266,7 @@
                 <!-- BOUTON RENOMMER -->
                 <button id="bulk-rename" onclick="renameSelected()"
                         title="Renommer l'élément sélectionné"
-                        class="hidden p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all shadow-sm">
+                        class="hidden p-2 bg-amber-500 text-white rounded-lg shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition-all">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                     </svg>
@@ -275,7 +275,7 @@
                 <!-- BOUTON SUPPRIMER -->
                 <button id="bulk-delete" onclick="deleteSelected()"
                         title="Supprimer la sélection"
-                        class="hidden p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all shadow-sm">
+                        class="hidden p-2 bg-rose-600 text-white rounded-lg shadow-lg shadow-rose-500/20 hover:bg-rose-500 transition-all">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                     </svg>
@@ -284,7 +284,7 @@
                 <!-- BOUTON TÉLÉCHARGER ZIP -->
                 <button id="bulk-download" onclick="downloadSelectedAsZip()"
                         title="Télécharger la sélection (ZIP)"
-                        class="hidden p-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-all shadow-sm">
+                        class="hidden p-2 bg-violet-600 text-white rounded-lg shadow-lg shadow-violet-500/20 hover:bg-violet-500 transition-all">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
