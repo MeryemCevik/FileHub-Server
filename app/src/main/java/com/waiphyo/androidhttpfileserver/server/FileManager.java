@@ -85,26 +85,35 @@ public class FileManager {
     }
 
     public String getFileListJson(String relativePath) {
-        return getFileListJson(relativePath, false);
+        return getFileListJson(relativePath, false, null);
     }
 
     public String getFileListJson(String relativePath, boolean recursiveImagesOnly) {
+        return getFileListJson(relativePath, recursiveImagesOnly, null);
+    }
+
+    public String getFileListJson(String relativePath, boolean recursiveImagesOnly, String searchQuery) {
         File targetDir = new File(rootPath, relativePath);
         if (!targetDir.exists() || !targetDir.isDirectory()) return "[]";
 
         StringBuilder json = new StringBuilder("[");
-        if (recursiveImagesOnly) {
-            List<File> allImages = new ArrayList<>();
-            findImagesRecursive(targetDir, allImages);
-            for (int i = 0; i < allImages.size(); i++) {
-                File f = allImages.get(i);
+        if (recursiveImagesOnly || searchQuery != null) {
+            List<File> results = new ArrayList<>();
+            if (searchQuery != null && !searchQuery.isEmpty()) {
+                findFilesRecursive(targetDir, results, searchQuery);
+            } else if (recursiveImagesOnly) {
+                findImagesRecursive(targetDir, results);
+            }
+            
+            for (int i = 0; i < results.size(); i++) {
+                File f = results.get(i);
                 String fullPath = f.getAbsolutePath();
                 String relPath = fullPath.substring(new File(rootPath).getAbsolutePath().length());
                 if (relPath.startsWith(File.separator)) relPath = relPath.substring(1);
                 relPath = relPath.replace(File.separatorChar, '/');
 
                 appendFileJson(json, f, relPath);
-                if (i < allImages.size() - 1) json.append(",");
+                if (i < results.size() - 1) json.append(",");
             }
         } else {
             File[] files = targetDir.listFiles();
@@ -139,6 +148,22 @@ public class FileManager {
                     name.endsWith(".webp") || name.endsWith(".gif")) {
                     result.add(f);
                 }
+            }
+        }
+    }
+
+    private void findFilesRecursive(File dir, List<File> result, String query) {
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        String lowerQuery = query.toLowerCase();
+        for (File f : files) {
+            if (f.getName().toLowerCase().contains(lowerQuery)) {
+                result.add(f);
+                if (result.size() >= 500) return;
+            }
+            if (f.isDirectory()) {
+                findFilesRecursive(f, result, query);
+                if (result.size() >= 500) return;
             }
         }
     }

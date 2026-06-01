@@ -26,6 +26,8 @@ let uploadQueue = [];
 let isUploading = false;
 let renameTarget = null;
 let targetGalleryPath = null;
+let searchTimeout = null;
+let isSearchMode = false;
 let editorTarget = null; // Fichier en cours d'édition
 
 // Galerie & Lightbox
@@ -121,6 +123,11 @@ function renderFileList(files) {
         const iconClass = file.isDir ? 'bg-green-100 text-green-700' : getIconBgClass(file.name);
         const isChecked = selectedPaths.has(file.path);
 
+        // Déterminer si le fichier est dans le dossier actuel ou ailleurs (recherche globale)
+        const lastSlash = file.path.lastIndexOf('/');
+        const fileDir = lastSlash !== -1 ? file.path.substring(0, lastSlash) : '';
+        const isElsewhere = isSearchMode && fileDir !== currentPath;
+
         return `
         <div class="grid grid-cols-12 gap-4 px-6 py-4 items-center file-item group"
              onclick="handleItemClick(event, '${file.isDir}', '${file.path.replace(/'/g, "\\'")}')">
@@ -136,18 +143,29 @@ function renderFileList(files) {
                 <div class="p-2.5 rounded-xl mr-4 ${iconClass}">${icon}</div>
                 <div class="truncate">
                     <p class="font-bold text-primary group-hover:text-accent">${file.name}</p>
-                    <p class="md:hidden text-[10px] text-secondary uppercase">${file.isDir ? 'Dossier' : file.size}</p>
+                    <p class="text-[10px] text-secondary uppercase truncate">
+                        ${isElsewhere ? file.path : (file.isDir ? 'Dossier' : file.size)}
+                    </p>
                 </div>
             </div>
 
             <div class="hidden md:block md:col-span-3 text-right text-sm text-secondary font-medium">${file.isDir ? 'Dossier' : file.size}</div>
 
             <div class="col-span-4 md:col-span-3 text-right flex items-center justify-end space-x-2">
+                ${isElsewhere ? `
+                    <button onclick="event.stopPropagation(); goToFolderOf('${file.path.replace(/'/g, "\\'")}')"
+                            class="p-2 bg-violet-100 text-violet-600 rounded-lg hover:bg-violet-200 transition-all"
+                            title="Aller au dossier">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                        </svg>
+                    </button>
+                ` : ''}
                 ${isImage ? `
                     <button onclick="event.stopPropagation(); locateInGallery('${file.path.replace(/'/g, "\\'")}')"
-                            class="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
+                            class="p-3 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
                             title="Localiser en Galerie">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                         </svg>
                     </button>
@@ -161,7 +179,6 @@ function renderFileList(files) {
                         </svg>
                     </button>
                 ` : ''}
-                <span class="text-gray-300 group-hover:text-accent">→</span>
             </div>
         </div>
     `}).join('');
@@ -187,53 +204,87 @@ function toggleItemSelection(checkbox) {
  */
 function filterFiles() {
     const input = document.getElementById('search-input');
-    const query = input.value.toLowerCase().trim();
+    const query = input.value.trim();
     const clearBtn = document.getElementById('clear-search');
-    const items = document.querySelectorAll('.file-item');
-    const emptyState = document.getElementById('empty-state');
 
     // Affichage/Masquage du bouton de reset (X)
     if (clearBtn) clearBtn.classList.toggle('hidden', query.length === 0);
 
-    let hasVisibleItems = false;
+    // Annuler le timeout précédent pour éviter de multiplier les requêtes
+    if (searchTimeout) clearTimeout(searchTimeout);
 
-    items.forEach(item => {
-        // On récupère le nom du fichier dans le paragraphe font-bold
-        const fileName = item.querySelector('p.font-bold').textContent.toLowerCase();
-
-        if (fileName.includes(query)) {
-            item.classList.remove('hidden');
-            hasVisibleItems = true;
-        } else {
-            item.classList.add('hidden');
+    // Si la requête est trop courte, on sort du mode recherche et on recharge le dossier actuel
+    if (query.length < 2) {
+        if (isSearchMode) {
+            isSearchMode = false;
+            loadFiles(currentPath, false);
         }
-    });
-
-    // Gestion de l'état vide si aucun résultat
-    if (emptyState) {
-        if (!hasVisibleItems && query.length > 0) {
-            emptyState.classList.remove('hidden');
-            emptyState.querySelector('h3').textContent = "Aucun résultat";
-            emptyState.querySelector('p').textContent = `Aucun fichier ne correspond à "${query}"`;
-        } else if (hasVisibleItems) {
-            emptyState.classList.add('hidden');
-        } else if (query.length === 0 && allFilesCount === 0) {
-            emptyState.classList.remove('hidden');
-            emptyState.querySelector('h3').textContent = "Dossier vide";
-        }
+        return;
     }
+
+    // Debounce de 500ms pour l'expérience utilisateur et les performances
+    searchTimeout = setTimeout(async () => {
+        isSearchMode = true;
+        const fileListEl = document.getElementById('file-list');
+        const emptyState = document.getElementById('empty-state');
+
+        fileListEl.innerHTML = `
+            <div class="py-32 text-center">
+                <div class="inline-block loader rounded-full h-10 w-10 border-4 border-gray-200 border-t-accent mb-4"></div>
+                <p class="text-secondary font-medium">Recherche globale dans tout le téléphone...</p>
+            </div>
+        `;
+
+        try {
+            // Recherche récursive à partir de la racine pour une recherche vraiment globale
+            const res = await fetch(`${CONFIG.endpoints.files}?path=&recursive=true&query=${encodeURIComponent(query)}`);
+            const files = await res.json();
+
+            if (files.length === 0) {
+                fileListEl.innerHTML = '';
+                if (emptyState) {
+                    emptyState.classList.remove('hidden');
+                    emptyState.querySelector('h3').textContent = "Aucun résultat";
+                    emptyState.querySelector('p').textContent = `Aucun fichier trouvé pour "${query}" sur l'appareil.`;
+                }
+            } else {
+                if (emptyState) emptyState.classList.add('hidden');
+                renderFileList(files);
+            }
+        } catch (e) {
+            fileListEl.innerHTML = `<div class="py-20 text-center text-red-500 font-bold">Erreur lors de la recherche</div>`;
+        }
+    }, 500);
 }
 
-/**
- * RESET DE LA RECHERCHE
- */
 function clearSearch() {
     const input = document.getElementById('search-input');
     if (input) {
         input.value = '';
-        filterFiles();
-        input.focus();
+        isSearchMode = false;
+        if (searchTimeout) clearTimeout(searchTimeout);
+        const clearBtn = document.getElementById('clear-search');
+        if (clearBtn) clearBtn.classList.add('hidden');
+        loadFiles(currentPath, false);
     }
+}
+
+/**
+ * NAVIGUER VERS LE DOSSIER D'UN FICHIER (Bouton Violet)
+ */
+function goToFolderOf(path) {
+    const parts = path.split('/');
+    parts.pop(); // Enlever le nom du fichier pour ne garder que le dossier
+    const folderPath = parts.join('/');
+
+    // Sortir du mode recherche pour afficher le contenu réel du dossier
+    isSearchMode = false;
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) searchInput.value = '';
+    const clearBtn = document.getElementById('clear-search');
+    if (clearBtn) clearBtn.classList.add('hidden');
+
+    loadFiles(folderPath);
 }
 
 
@@ -731,16 +782,18 @@ async function loadGallery(path, recursive = false) {
                     target.style.outline = "4px solid var(--accent-color)";
                     target.style.outlineOffset = "4px";
                     target.style.transform = "scale(1.02)";
+                    target.style.zIndex = "10";
 
                     setTimeout(() => {
                         target.style.outline = "none";
                         target.style.transform = "";
+                        target.style.zIndex = "";
                     }, 3000);
                 } else {
                     console.warn("Élément non trouvé dans la galerie :", targetGalleryPath);
                 }
                 targetGalleryPath = null;
-            }, 800);
+            }, 1000);
         }
     } catch (e) {
         gridEl.innerHTML = '<div class="col-span-full py-20 text-center text-red-500 font-bold">Erreur de chargement</div>';
