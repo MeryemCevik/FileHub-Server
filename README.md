@@ -204,7 +204,6 @@ Par défaut, le serveur utilise le port :
 Le port peut être modifié directement depuis l’**interface de l’application** :
 
 * Ouvrir l’application
-* Aller dans les paramètres (ou écran de configuration serveur)
 * Modifier le champ **Port**
 * Redémarrer le serveur dans l’application
 
