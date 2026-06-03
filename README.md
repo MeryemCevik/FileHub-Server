@@ -14,7 +14,6 @@ Serveur HTTP local Android permettant d’accéder et gérer les fichiers d’un
 - [Présentation](#présentation)
 - [Fonctionnalités](#fonctionnalités)
 - [Charte graphique et thème](#charte-graphique-et-thème)
-- [Capture d’écran](#capture-décran)
 - [Architecture](#architecture)
 - [Installation (développement)](#installation-développement)
 - [Installation APK (recommandé)](#installation-apk-recommandé)
@@ -109,18 +108,6 @@ L’application repose sur une interface moderne, sobre et orientée productivit
 - Bascule fluide entre mode clair et sombre
 - Fil d’Ariane (breadcrumb) pour la navigation
 - Effets de survol pour indiquer les éléments interactifs
-
----
-
-## Capture d’écran
-
-### Page principale
-
-<p align="center">
-  <img src="docs/screenshots/home.png" alt="Page principale" width="320" />
-  <img src="docs/screenshots/home1.png" alt="Page principale 2" width="320" />
-</p>
----
 
 ## Architecture
 
